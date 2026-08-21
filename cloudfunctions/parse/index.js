@@ -119,10 +119,13 @@ async function callLLM(text, ref) {
 }
 
 function refDate() {
-  const now = new Date();
+  // ⚠️ 云函数运行在 UTC 时区，必须显式 +8h 换算北京时间并用 getUTC* 取值。
+  // 直接用 new Date() 的本地方法，会在北京时间 00:00-08:00 期间把"今天"算成前一天，
+  // 导致相对时间解析出的 date 全部错一天、提醒锚点落在过去永远不发（2026-08-22 实测踩坑）。
+  const now = new Date(Date.now() + 8 * 3600 * 1000);
   const pad = (n) => (n < 10 ? '0' + n : '' + n);
-  const wd = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
-  return { ref_date: now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()), ref_weekday: wd };
+  const wd = ['日', '一', '二', '三', '四', '五', '六'][now.getUTCDay()];
+  return { ref_date: now.getUTCFullYear() + '-' + pad(now.getUTCMonth() + 1) + '-' + pad(now.getUTCDate()), ref_weekday: wd };
 }
 
 function hashStr(s) {
