@@ -1,0 +1,26 @@
+<view class="confirm-page">
+  <view class="hint" wx:if="{{events.length > 1}}">共 {{events.length}} 个日程，左右滑动切换</view>
+
+  <swiper class="swiper" bindchange="onSwiper">
+    <swiper-item wx:for="{{events}}" wx:key="index">
+      <view class="card">
+        <view class="row"><text class="label">标题</text><input class="field" value="{{item.title}}" data-field="title" bindinput="editField" placeholder="事项标题" /></view>
+        <view class="row"><text class="label">日期</text><input class="field" value="{{item.date}}" data-field="date" bindinput="editField" placeholder="YYYY-MM-DD" /></view>
+        <view class="row"><text class="label">开始</text><input class="field" value="{{item.start_time}}" data-field="start_time" bindinput="editField" placeholder="HH:MM 或空" /></view>
+        <view class="row"><text class="label">结束</text><input class="field" value="{{item.end_time}}" data-field="end_time" bindinput="editField" placeholder="HH:MM 或空" /></view>
+        <view class="row"><text class="label">地点</text><input class="field" value="{{item.location}}" data-field="location" bindinput="editField" placeholder="地点" /></view>
+        <view class="row"><text class="label">参与人</text><input class="field" value="{{item.peopleText}}" bindinput="editPeople" placeholder="逗号分隔" /></view>
+        <view class="row"><text class="label">提前提醒(分)</text><input class="field" type="number" value="{{item.reminder_minutes}}" data-field="reminder_minutes" bindinput="editField" placeholder="30" /></view>
+        <view class="row switch-row"><text class="label">是否截止日</text><switch checked="{{item.is_deadline}}" bindchange="toggleDeadline" color="#07c160" /></view>
+        <view class="row" wx:if="{{item.fuzzy_time}}"><text class="label">模糊时间</text><text class="fuzzy">{{item.fuzzy_time}}</text></view>
+      </view>
+    </swiper-item>
+  </swiper>
+
+  <view wx:if="{{!manual}}" class="feedback-link" bindtap="onFeedback">识别有误？上报 badcase</view>
+
+  <view class="actions">
+    <button class="btn-ghost" bindtap="onBack">再改改</button>
+    <button class="btn-primary" loading="{{writing}}" disabled="{{writing}}" bindtap="onWrite">保存到我的日程</button>
+  </view>
+</view>

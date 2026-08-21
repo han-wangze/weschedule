@@ -1,0 +1,11 @@
+.settings-page { padding-bottom: 40rpx; }
+.profile { display:flex; align-items:center; }
+.avatar { width:96rpx; height:96rpx; border-radius:50%; background:#07c160; flex-shrink:0; }
+.profile-text { margin-left:24rpx; display:flex; flex-direction:column; }
+.nick { font-size:32rpx; font-weight:600; }
+.sub { font-size:24rpx; color:#9aa0a6; margin-top:6rpx; }
+.group { margin:20rpx 24rpx; background:#fff; border-radius:16rpx; overflow:hidden; }
+.cell { display:flex; justify-content:space-between; align-items:center; padding:28rpx 24rpx; border-bottom:1rpx solid #f0f2f5; font-size:30rpx; }
+.cell:last-child { border-bottom:none; }
+.arrow { color:#c8c9cc; }
+.sub { color:#9aa0a6; font-size:28rpx; }

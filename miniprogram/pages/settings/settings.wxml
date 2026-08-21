@@ -1,0 +1,18 @@
+<view class="settings-page">
+  <view class="card profile">
+    <view class="avatar"></view>
+    <view class="profile-text">
+      <text class="nick">WeSchedule 用户</text>
+      <text class="sub">复制群消息，轻松管理日程</text>
+    </view>
+  </view>
+
+  <view class="group">
+    <view class="cell" bindtap="goPrivacy"><text>隐私协议</text><text class="arrow">></text></view>
+    <view class="cell" bindtap="onFeedback"><text>识别有误反馈</text><text class="arrow">></text></view>
+  </view>
+
+  <view class="group">
+    <view class="cell"><text>版本</text><text class="sub">{{version}}</text></view>
+  </view>
+</view>
