@@ -17,3 +17,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *.log
+
+# 本地密钥（含 DeepSeek API Key，绝不入库；.env.example 模板保留）
+.env

@@ -23,12 +23,15 @@ SYSTEM_PROMPT = '''你是一个日程信息解析器。用户会给你一段从�
 
 规则：
 1. 输出且只输出 JSON，不要输出任何解释、markdown 标记或代码块符号。
-2. 相对时间归一化：明天、后天、下周X、周X、X月X日（未给年份时取最近一次的未来日期）都要换算成 YYYY-MM-DD。
-3. 模糊时间（如"晚上""傍晚""找时间"）：start_time 填 null，fuzzy_time 填原文表述，confidence 不超过 0.6。
+2. 相对时间归一化：明天、后天、下周X、X月X日（未给年份时取最近一次的未来日期）都要换算成 YYYY-MM-DD。周X 解析为严格晚于今天（{ref_date}）的下一个匹配星期几（未来向、不含当天），除非文本明确"今天/今/这周X"才取当天。
+3. 时段词与模糊时间的区分：
+若文本含可映射为具体钟点的时段词且未给具体钟点，则 start_time 取下方映射值、fuzzy_time 填 null：早上/早晨/早自习/第一节课 → 08:00；上午 → 10:00；中午/午间 → 12:00；下午 → 14:00；傍晚 → 17:00；晚上/夜里 → 18:00；第二节课 → 10:00；第三节课 → 14:00。
+真正模糊、无法确定钟点的情况（如"有空/大概/左右/最近/哪天都行/找时间/碰一下/再说"等），start_time 填 null，fuzzy_time 填原文表述，confidence 不超过 0.6。
+日期填充约束：当消息未指向任何具体某一天（仅模糊时段，或"有空/最近/哪天都行/这周末/下午有会"等），date 必须填 null，禁止填 {ref_date} 或推算日；只有能锚定具体某天（明天/后天/周X/日期/下周X）才填 date。
 4. 未明确的时间不要猜测编造。只有原文出现或能直接换算的信息才允许填，否则填 null。
 5. 截止日（如"23号前交作业""DDL"）：is_deadline 填 true，未给具体时间时 start_time 填 23:59，reminder_minutes 填 1440。
 6. 一条文本含多个独立日程时，拆成多个 event。
-7. 以下情况 has_schedule 填 false，events 填空数组：闲聊、表情、询问过去的事、不含未来行动点的通知、广告。
+7. 以下情况 has_schedule 填 false，events 填空数组：纯闲聊寒暄、表情、询问过去的事、广告。注意：只要文本表达了未来的具体行动意图（如自习、开会、办签证、碰毕业论文、约球、聚餐、面试、体检、还书等），即使只有模糊时段（晚上/下午/最近/有空/哪天都行）或未给具体日期，也必须 has_schedule=true 并提取为事件（date 可填 null，fuzzy_time 填原文时段，start_time 填 null）；仅当完全无行动意图才判 false。
 8. title 不超过 12 个字，概括事项本身，不要带"请""记得"等语气词。
 9. people 只填原文明确出现的参与人，保留原文称呼。
 10. location 保留原文最具体的表述，不要补全或推测。
@@ -244,7 +247,7 @@ def evaluate(items, predictions):
     acc = safe(tp + tn, tp + tn + fp + fn)
     p = safe(tp, tp + fp)
     r = safe(tp, tp + fn)
-    f1 = safe(2 * p * r, p + r) if (p + r) else 0.0
+    f1 = round(2 * p * r / (p + r), 1) if (p + r) else 0.0
     miss_rate = safe(e_fp, e_total)
     ev_p = safe(event_tp, event_pred)
     ev_r = safe(event_tp, event_gold)
@@ -263,7 +266,7 @@ def evaluate(items, predictions):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--prompt', default='v1')
+    ap.add_argument('--prompt', default='v1.2')
     ap.add_argument('--dataset', default='dev', choices=['dev', 'test'])
     ap.add_argument('--resplit', action='store_true', help='重新生成固定切分')
     args = ap.parse_args()
