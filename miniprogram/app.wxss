@@ -1,0 +1,45 @@
+/* app.wxss —— 全局样式：白底、单一强调色（微信绿 #07c160）、圆角卡片 */
+page {
+  background: #f5f6f8;
+  color: #1f1f1f;
+  font-size: 28rpx;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", Helvetica, sans-serif;
+  line-height: 1.6;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  margin: 20rpx 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.btn-primary {
+  background: #07c160;
+  color: #ffffff;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+}
+.btn-primary[disabled] {
+  opacity: 0.5;
+}
+
+.btn-ghost {
+  background: #f0f2f5;
+  color: #333333;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+}
+
+.muted {
+  color: #9aa0a6;
+  font-size: 24rpx;
+}
+
+.section-title {
+  font-size: 26rpx;
+  color: #9aa0a6;
+  margin: 24rpx 28rpx 4rpx;
+}

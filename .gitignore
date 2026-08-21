@@ -1,0 +1,19 @@
+# 微信开发者工具本地私有配置（含本机 appid/路径，不入库）
+project.private.config.json
+
+# 依赖
+node_modules/
+miniprogram_npm/
+
+# 评测生成物
+eval/.split.json
+eval/reports/
+
+# Python
+__pycache__/
+*.pyc
+
+# 系统
+.DS_Store
+Thumbs.db
+*.log
