@@ -42,7 +42,19 @@ SYSTEM_PROMPT = '''你是一个日程信息解析器。用户会给你一段从�
 {
   "has_schedule": true 或 false,
   "events": [
-    {"title": "字符串", "date": "YYYY-MM-DD", "start_time": "HH:MM 或 null", "end_time": "HH:MM 或 null", "fuzzy_time": "字符串或 null", "is_deadline": true 或 false, "location": "字符串或 null", "people": ["字符串"], "reminder_minutes": 数字, "confidence": 0 到 1, "raw_snippet": "原文中最相关的一小段"}
+    {
+      "title": "字符串",
+      "date": "YYYY-MM-DD",
+      "start_time": "HH:MM 或 null",
+      "end_time": "HH:MM 或 null",
+      "fuzzy_time": "字符串或 null",
+      "is_deadline": true 或 false,
+      "location": "字符串或 null",
+      "people": ["字符串"],
+      "reminder_minutes": 数字,
+      "confidence": 0 到 1 的数字,
+      "raw_snippet": "原文中最相关的一小段"
+    }
   ],
   "reject_reason": "has_schedule 为 false 时的一句话原因，否则为 null"
 }'''
