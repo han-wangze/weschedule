@@ -1,4 +1,6 @@
 // cloudfunctions/remind/index.js —— 定时触发器：到点发订阅消息提醒（方案 A 替代系统日历）
+// 优化：预备提醒（is_prep）。受微信"一次授权一次推送"约束，预备提醒复用该事件唯一的订阅授权——
+// 把提醒时间改到预备窗口（前一晚 20:00）并改写文案；若已过期则退回开始前 30 分。仍只发一次。
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
@@ -30,26 +32,47 @@ exports.main = async () => {
   let sent = 0;
   let skipped = 0;
   for (const e of res.data) {
-    // 截止日(is_deadline)以当天 23:59 为锚点，其余以开始时间为锚点
+    // 锚点：截止日以当天 23:59，其余以开始时间
     const anchor = e.is_deadline ? toMs(e.date, '23:59') : toMs(e.date, e.start_time);
-    const remindAt = anchor - (Number(e.reminder_minutes) || 30) * 60 * 1000;
+    let remindAt = null;
+    let prepMode = false;
+
+    if (e.is_prep) {
+      // 预备提醒：前一晚 20:00 发；若已过期则退回开始前 30 分（仍只发一次）
+      const prevEvening = toMs(e.date, '20:00') - 24 * 3600 * 1000;
+      const startAt = anchor - (Number(e.reminder_minutes) || 30) * 60 * 1000;
+      if (now >= prevEvening && now < anchor) { remindAt = prevEvening; prepMode = true; }
+      else if (now >= startAt && now < anchor) { remindAt = startAt; prepMode = true; }
+    } else {
+      remindAt = anchor - (Number(e.reminder_minutes) || 30) * 60 * 1000;
+    }
+
+    if (remindAt == null) continue;
     // 仅当进入提醒窗口且未过锚点时间才发
     if (now >= remindAt && now < anchor) {
       try {
+        const data = prepMode
+          ? {
+              thing5: { value: (e.title || '日程提醒').slice(0, 20) },
+              date4: { value: toDateText(e.date) },
+              thing10: { value: (e.location || '无地点').slice(0, 20) },
+              thing11: { value: ('请准备·' + toDateText(e.date) + (e.start_time ? ' ' + e.start_time : '')).slice(0, 20) },
+            }
+          : {
+              thing5: { value: (e.title || '日程提醒').slice(0, 20) },
+              date4: { value: toDateText(e.date) },
+              thing10: { value: (e.location || '无地点').slice(0, 20) },
+              thing11: { value: ((e.start_time || '') + (e.end_time ? '-' + e.end_time : '') || '待定').slice(0, 20) },
+            };
         await cloud.openapi.subscribeMessage.send({
           touser: e._openid,
           templateId: TEMPLATE_ID,
           page: '/pages/list/list',
-          // 字段 key 必须与此模板一一对应：
-          // thing5=日程标题, date4=日程时间(date类型仅日期), thing10=地点, thing11=备注(含时分)
-          data: {
-            thing5: { value: (e.title || '日程提醒').slice(0, 20) },
-            date4: { value: toDateText(e.date) },
-            thing10: { value: (e.location || '无地点').slice(0, 20) },
-            thing11: { value: ((e.start_time || '') + (e.end_time ? '-' + e.end_time : '') || '待定').slice(0, 20) },
-          },
+          data,
         });
-        await db.collection('events').doc(e._id).update({ data: { reminded: true } });
+        const upd = { reminded: true };
+        if (prepMode) upd.prep_sent = true;
+        await db.collection('events').doc(e._id).update({ data: upd });
         sent++;
       } catch (err) {
         // 用户未授权/授权过期会被微信拒绝，标记避免重复尝试刷额度

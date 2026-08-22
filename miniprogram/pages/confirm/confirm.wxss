@@ -10,3 +10,13 @@
 .feedback-link { text-align:center; color:#fa5151; font-size:26rpx; margin:12rpx 0 4rpx; text-decoration:underline; }
 .actions { display:flex; margin:24rpx; gap:20rpx; }
 .actions button { flex:1; }
+
+/* 冲突内联警示（非阻断，不弹窗） */
+.warn { display:flex; align-items:center; margin:16rpx 24rpx 0; padding:16rpx 20rpx; border-radius:12rpx; font-size:26rpx; line-height:1.4; }
+.warn-hard { background:#fdecec; color:#e54d42; border:1rpx solid #f5c6c6; }
+.warn-soft { background:#fff7e6; color:#ad6800; border:1rpx solid #ffe0a3; }
+.warn-icon { margin-right:10rpx; }
+/* 规则法空闲槽建议 chip */
+.slots { display:flex; flex-wrap:wrap; align-items:center; margin:12rpx 24rpx 0; }
+.slots-tip { font-size:26rpx; color:#9aa0a6; margin-right:8rpx; }
+.chip { background:#eef2ff; color:#4f46e5; border:1rpx solid #d6defc; border-radius:999rpx; padding:10rpx 22rpx; margin:8rpx 10rpx 0 0; font-size:26rpx; }

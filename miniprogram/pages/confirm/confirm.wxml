@@ -1,6 +1,19 @@
 <view class="confirm-page">
   <view class="hint" wx:if="{{events.length > 1}}">共 {{events.length}} 个日程，左右滑动切换</view>
 
+  <!-- 非阻断式冲突内联警示（不弹窗，保留用户最终控制权） -->
+  <view wx:if="{{currentWarn.level}}" class="warn warn-{{currentWarn.level}}">
+    <text class="warn-icon">⚠️</text>
+    <text class="warn-text">{{currentWarn.text}}</text>
+  </view>
+  <!-- 硬冲突：给出规则法空闲槽建议 chip（一键采纳，AI 只提案不擅改） -->
+  <view wx:if="{{suggestions.length}}" class="slots">
+    <text class="slots-tip">建议改到：</text>
+    <view wx:for="{{suggestions}}" wx:key="date" class="chip" data-slot="{{item}}" bindtap="onPickSlot">
+      {{item.date}} {{item.start_time}}–{{item.end_time}}
+    </view>
+  </view>
+
   <swiper class="swiper" bindchange="onSwiper">
     <swiper-item wx:for="{{events}}" wx:key="index">
       <view class="card">

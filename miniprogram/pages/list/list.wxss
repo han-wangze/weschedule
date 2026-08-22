@@ -10,7 +10,9 @@
   display:flex; align-items:center;
 }
 .item-main { display:flex; flex-direction:column; }
+.item-title-row { display:flex; align-items:center; }
 .item-title { font-size:30rpx; font-weight:500; }
+.conflict-tag { margin-left:12rpx; font-size:22rpx; color:#e54d42; background:#fdecec; border:1rpx solid #f5c6c6; border-radius:8rpx; padding:2rpx 10rpx; }
 .item-time { font-size:24rpx; color:#9aa0a6; margin-top:6rpx; }
 .del-btn {
   position:absolute; top:0; right:0; bottom:0; width:120rpx;

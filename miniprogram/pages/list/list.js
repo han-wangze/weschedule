@@ -1,5 +1,6 @@
-// pages/list/list.js —— 我的日程：按日期分组 + 左滑删除
+// pages/list/list.js —— 我的日程：按日期分组 + 左滑删除 + 冲突标记
 const api = require('../../utils/api.js');
+const conflict = require('../../utils/conflict.js');
 
 Page({
   data: { groups: [], offsets: {} },
@@ -9,7 +10,15 @@ Page({
   async load() {
     try {
       const res = await api.listEvents();
-      this.groupByDate(res.events || []);
+      const events = res.events || [];
+      // 标记冲突事项（软/硬都标，列表页只做视觉提示，详情在确认页/编辑时处理）
+      const conflictIds = new Set();
+      conflict.detectConflicts(events).forEach((c) => {
+        if (c.a._id) conflictIds.add(c.a._id);
+        if (c.b._id) conflictIds.add(c.b._id);
+      });
+      events.forEach((e) => { e.conflict = conflictIds.has(e._id); });
+      this.groupByDate(events);
     } catch (e) {
       wx.showToast({ title: '加载失败', icon: 'none' });
     }

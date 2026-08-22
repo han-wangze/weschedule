@@ -1,5 +1,14 @@
 // pages/confirm/confirm.js —— 确认卡片页：多事件编辑 + 保存 + 订阅提醒授权（方案 A，系统日历写入已移除）
+// 新增：冲突检测（基于 is_deadline 软/硬分级）+ 非阻断内联警示 + 规则法空闲槽建议 chip
 const api = require('../../utils/api.js');
+const conflict = require('../../utils/conflict.js');
+
+function fmtWhen(e) {
+  const wd = conflict.weekday(e.date);
+  if (e.is_deadline) return wd + ' 截止日';
+  if (e.start_time) return wd + ' ' + e.start_time + (e.end_time ? '-' + e.end_time : '');
+  return wd + ' ' + (e.fuzzy_time || '时间待定');
+}
 
 Page({
   data: {
@@ -9,6 +18,9 @@ Page({
     manual: false,
     requestId: '',
     rawText: '',
+    existing: [],          // 已保存的活跃日程（用于冲突比对）
+    currentWarn: null,     // { level:'hard'|'soft', text, partners:[...] }
+    suggestions: [],       // 硬冲突时的规则法空闲槽 chip
   },
 
   onLoad(options) {
@@ -20,6 +32,56 @@ Page({
     } else if (options.manual) {
       this.setData({ events: [this.blankEvent()], manual: true });
     }
+    this.loadExisting();
+  },
+
+  async loadExisting() {
+    try {
+      const res = await api.listEvents();
+      this.setData({ existing: res.events || [] });
+    } catch (e) {}
+    this.computeConflicts();
+  },
+
+  // 计算冲突：新事件之间 + 新事件与已存事件之间
+  computeConflicts() {
+    const mine = this.data.events;
+    const pool = mine.concat(this.data.existing);
+    const all = conflict.detectConflicts(pool);
+    this._all = all;
+    this.updateCurrent();
+  },
+
+  // 依据当前卡片，生成内联警示 + 建议 chip
+  updateCurrent() {
+    const i = this.data.index;
+    const ev = this.data.events[i];
+    if (!ev) { this.setData({ currentWarn: null, suggestions: [] }); return; }
+    const partners = conflict.partnersOf(ev, this._all || []);
+    if (!partners.length) { this.setData({ currentWarn: null, suggestions: [] }); return; }
+    const hard = partners.some((p) => !p.is_deadline && !ev.is_deadline);
+    const level = hard ? 'hard' : 'soft';
+    const top = partners[0];
+    const more = partners.length > 1 ? ' 等 ' + partners.length + ' 个日程' : '';
+    const text = '与「' + (top.title || '日程') + '」时间重叠（' + fmtWhen(top) + '）' + more;
+    let suggestions = [];
+    if (hard && ev.start_time) {
+      const pool = this.data.events.concat(this.data.existing).filter((e) => e !== ev);
+      suggestions = conflict.findFreeSlots(ev, pool, 2);
+    }
+    this.setData({ currentWarn: { level, text, count: partners.length }, suggestions });
+  },
+
+  onPickSlot(e) {
+    const slot = e.currentTarget.dataset.slot;
+    const i = this.data.index;
+    const key = 'events[' + i + ']';
+    this.setData({
+      [key + '.date']: slot.date,
+      [key + '.start_time']: slot.start_time,
+      [key + '.end_time']: slot.end_time,
+    });
+    this.computeConflicts();
   },
 
   blankEvent() {
@@ -40,7 +102,10 @@ Page({
     };
   },
 
-  onSwiper(e) { this.setData({ index: e.detail.current }); },
+  onSwiper(e) {
+    this.setData({ index: e.detail.current });
+    this.updateCurrent();
+  },
 
   editField(e) {
     const field = e.currentTarget.dataset.field;
@@ -57,6 +122,7 @@ Page({
   toggleDeadline(e) {
     const i = this.data.index;
     this.setData({ ['events[' + i + '].is_deadline']: e.detail.value });
+    this.computeConflicts();
   },
 
   onBack() { wx.navigateBack(); },
