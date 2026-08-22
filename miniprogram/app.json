@@ -25,5 +25,5 @@
   },
   "sitemapLocation": "sitemap.json",
   "style": "v2",
-  "__usePrivacyCheck__": true
+  "__usePrivacyCheck__": false
 }
