@@ -22,6 +22,8 @@ App({
     //    此前误写成 onNeedPrivacyAuthorize，导致自定义弹窗从未注册成功，实际走的是平台默认弹窗。
     //    需在 mp 后台「设置 → 服务内容声明 → 用户隐私保护指引」发布后才生效。
     if (wx.onNeedPrivacyAuthorization) {
+      // 注意：官方要求 resolve 必须带 buttonId（同意按钮的标识），
+      // 缺少该参数时平台可能不会持久化"用户已同意"状态，表现为每次进入都重新弹窗。
       wx.onNeedPrivacyAuthorization((resolve) => {
         wx.showModal({
           title: '隐私授权',
@@ -30,7 +32,7 @@ App({
           cancelText: '查看协议',
           success: (r) => {
             if (r.confirm) {
-              resolve({ event: 'agree' });
+              resolve({ buttonId: 'agree-btn', event: 'agree' });
               return;
             }
             // 必须用官方接口打开隐私指引（平台要求）；不可用则兜底跳小程序内隐私页
@@ -38,9 +40,9 @@ App({
               fail: () => wx.navigateTo({ url: '/pages/privacy/privacy' }),
             });
             // 本次按"未同意"上报；用户下次触发隐私接口时会自动再次询问
-            resolve({ event: 'disagree' });
+            resolve({ buttonId: 'disagree-btn', event: 'disagree' });
           },
-          fail: () => resolve({ event: 'disagree' }),
+          fail: () => resolve({ buttonId: 'disagree-btn', event: 'disagree' }),
         });
       });
     }

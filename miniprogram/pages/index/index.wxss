@@ -6,6 +6,13 @@
 .clip-label { font-size:22rpx; color:#07c160; display:block; margin-bottom:6rpx; }
 .clip-text { font-size:26rpx; color:#333; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-all; }
 .clip-btn { margin:0; background:#07c160; color:#fff; flex-shrink:0; }
+.privacy-bar { display:flex; align-items:center; justify-content:space-between; background:#fff7e6; border-radius:16rpx; padding:20rpx 24rpx; margin:8rpx 24rpx; }
+.pb-text { flex:1; margin-right:16rpx; }
+.pb-title { font-size:26rpx; font-weight:600; color:#ad6800; display:block; margin-bottom:4rpx; }
+.pb-sub { font-size:22rpx; color:#a1805a; display:block; line-height:1.5; }
+.pb-btn { margin:0; background:#fa8c16; color:#fff; flex-shrink:0; }
+.clear-row { display:flex; justify-content:flex-end; margin-bottom:8rpx; }
+.clear-btn { font-size:24rpx; color:#9aa0a6; padding:4rpx 8rpx; }
 .input { width:100%; min-height:200rpx; font-size:28rpx; }
 .parse-btn { margin:8rpx 24rpx 0; }
 .recent-item { display:flex; justify-content:space-between; align-items:center; }
