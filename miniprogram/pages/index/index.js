@@ -6,7 +6,6 @@ Page({
     clipboardText: '',   // 剪贴板全文，用于解析（修复 P0：此前只存 20 字导致解析截断）
     clipboardTip: '',    // 仅用于提示条预览
     hasClipboard: false,
-    needPrivacy: false,   // 未同意隐私协议时为 true：不自动读剪贴板，改由用户点击触发
     inputText: '',
     loading: false,
     recent: [],
@@ -21,8 +20,8 @@ Page({
   },
 
   // 先查隐私授权状态：已授权才自动读剪贴板。
-  // 未授权时**不自动触发**隐私接口，否则每次进首页 / 从日程页切回来都会弹授权窗。
-  // 官方 FAQ：用户同意过之后再次进入不应重新弹窗；此处改为"需要时由用户点击触发"。
+  // 未授权时**完全静默跳过**——不弹窗、不显示任何提示块。
+  // 用户可以直接长按输入框用系统菜单粘贴（无需任何授权），点「粘贴」按钮则会按需触发授权。
   readClipboard() {
     if (!wx.getPrivacySetting) {
       this.doReadClipboard();
@@ -30,30 +29,38 @@ Page({
     }
     wx.getPrivacySetting({
       success: (res) => {
-        if (res.needAuthorization) {
-          this.setData({ needPrivacy: true, hasClipboard: false });
-          return;
-        }
-        this.setData({ needPrivacy: false });
+        if (res.needAuthorization) return;   // 静默：不打扰，用户走粘贴路径
         this.doReadClipboard();
       },
       fail: () => this.doReadClipboard(),
     });
   },
 
-  // 用户点「同意并读取」：主动触发隐私授权（resolve 在 app.js 里统一处理）
-  onAuthorizeAndRead() {
-    if (wx.requirePrivacyAuthorize) {
-      wx.requirePrivacyAuthorize({
-        success: () => {
-          this.setData({ needPrivacy: false });
-          this.doReadClipboard();
+  // 用户点「粘贴」：把剪贴板内容填进输入框。
+  // 已授权 → 直接读；未授权 → 先触发授权（用户主动点击产生，符合平台要求），同意后再读。
+  onPaste() {
+    const read = () => {
+      wx.getClipboardData({
+        success: (res) => {
+          const text = (res.data || '').trim();
+          if (!text) {
+            wx.showToast({ title: '剪贴板是空的', icon: 'none' });
+            return;
+          }
+          this._lastClip = text;
+          this.setData({ inputText: text, clipboardText: text, hasClipboard: false });
         },
-        fail: () => {},
+        fail: () => wx.showToast({ title: '读取失败，请长按输入框粘贴', icon: 'none' }),
       });
+    };
+    if (!wx.requirePrivacyAuthorize) {
+      read();
       return;
     }
-    this.doReadClipboard();
+    wx.requirePrivacyAuthorize({
+      success: read,
+      fail: () => wx.showToast({ title: '需要同意隐私协议才能读取剪贴板', icon: 'none' }),
+    });
   },
 
   // 读取剪贴板：存全文用于解析，仅用前 30 字做预览提示

@@ -12,20 +12,12 @@
     <button class="clip-btn" size="mini" bindtap="onParse">解析</button>
   </view>
 
-  <!-- 未同意隐私协议：不自动读剪贴板，改由用户点击触发授权，避免每次进入都弹窗 -->
-  <view wx:if="{{needPrivacy}}" class="privacy-bar">
-    <view class="pb-text">
-      <text class="pb-title">需要同意隐私协议</text>
-      <text class="pb-sub">同意后即可自动识别剪贴板里的群消息；也可以直接在下方粘贴文本。</text>
-    </view>
-    <button class="pb-btn" size="mini" bindtap="onAuthorizeAndRead">同意并读取</button>
-  </view>
-
   <view class="card">
-    <view wx:if="{{inputText}}" class="clear-row">
-      <text class="clear-btn" bindtap="onClearInput">清空</text>
+    <view class="input-bar">
+      <text class="ib-btn primary" bindtap="onPaste">粘贴</text>
+      <text wx:if="{{inputText}}" class="ib-btn" bindtap="onClearInput">清空</text>
     </view>
-    <textarea class="input" placeholder="也可以把群消息粘贴到这里" value="{{inputText}}" bindinput="onInput" maxlength="2000" auto-height />
+    <textarea class="input" placeholder="把群消息粘贴到这里（也可长按用系统菜单粘贴）" value="{{inputText}}" bindinput="onInput" maxlength="2000" auto-height />
   </view>
 
   <button class="btn-primary parse-btn" loading="{{loading}}" disabled="{{loading}}" bindtap="onParse">解析日程</button>
