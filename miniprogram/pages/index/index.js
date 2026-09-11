@@ -15,26 +15,17 @@ Page({
   _lastClip: '',
 
   onShow() {
-    this.readClipboard();
+    // 进入页面即尝试读取剪贴板（受隐私保护接口）。
+    // 已授权 → 直接读出；未授权 → 微信自动触发 onNeedPrivacyAuthorization 弹一次授权，
+    // 用户同意后自动重试读取；拒绝则走 fail 静默处理。
+    // 不再手动调 wx.getPrivacySetting 判断 needAuthorization——该开关在授权状态异常时
+    // 会持续返回 true，导致永久静默跳过、剪贴板永不读取（表现即"功能没运行"）。
+    this.doReadClipboard();
     this.loadRecent();
   },
 
-  // 先查隐私授权状态：已授权才自动读剪贴板。
-  // 未授权时**完全静默跳过**——不弹窗、不显示任何提示块。
-  // 用户可以直接长按输入框用系统菜单粘贴（无需任何授权），点「粘贴」按钮则会按需触发授权。
-  readClipboard() {
-    if (!wx.getPrivacySetting) {
-      this.doReadClipboard();
-      return;
-    }
-    wx.getPrivacySetting({
-      success: (res) => {
-        if (res.needAuthorization) return;   // 静默：不打扰，用户走粘贴路径
-        this.doReadClipboard();
-      },
-      fail: () => this.doReadClipboard(),
-    });
-  },
+  // 注：上一版在读取前用 wx.getPrivacySetting 查 needAuthorization 做硬开关，
+  // 一旦未授权/授权被清除就永久跳过，已移除。由微信统一处理授权与重试。
 
   // 用户点「粘贴」：把剪贴板内容填进输入框。
   // 已授权 → 直接读；未授权 → 先触发授权（用户主动点击产生，符合平台要求），同意后再读。
