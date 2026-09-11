@@ -9,6 +9,7 @@ Page({
     inputText: '',
     loading: false,
     recent: [],
+    showPrivacy: false,  // 隐私授权弹窗显隐
   },
 
   // 上一次读到的剪贴板内容（不进 data，避免触发渲染）；用于判断"用户是不是复制了新消息"
@@ -54,6 +55,43 @@ Page({
     });
   },
 
+  // ===== 隐私授权弹窗（由 app.js 的 onNeedPrivacyAuthorization 触发显示）=====
+  // 弹窗内的"同意"按钮是真正的 <button open-type="agreePrivacyAuthorization">，
+  // 点击后才会触发 bindagreeprivacyauthorization → onAgreePrivacy，在那里调用 resolve。
+  // ⚠️ resolve 的 buttonId 必须对应页面上真实存在的该按钮 id，否则报 "buttonId is wrong"，
+  //    授权永不生效（这正是此前"点同意仍弹框 + 读取失败"的根因）。
+  showPrivacyModal() {
+    if (!this.data.showPrivacy) this.setData({ showPrivacy: true });
+  },
+
+  onViewPrivacy() {
+    if (wx.openPrivacyContract) {
+      wx.openPrivacyContract({ fail: () => wx.navigateTo({ url: '/pages/privacy/privacy' }) });
+    } else {
+      wx.navigateTo({ url: '/pages/privacy/privacy' });
+    }
+  },
+
+  onAgreePrivacy() {
+    const app = getApp();
+    const resolve = app.globalData.privacyResolve;
+    // buttonId 必须与 wxml 中同意按钮的 id 一致
+    if (resolve) resolve({ buttonId: 'agree-btn', event: 'agree' });
+    app.globalData.privacyResolve = null;
+    this.setData({ showPrivacy: false });
+    // 授权成功后补读一次剪贴板（被拦截的那次由微信自动重试，这里兜底确保顶部提示条刷新）
+    this.doReadClipboard();
+  },
+
+  onDisagreePrivacy() {
+    const app = getApp();
+    const resolve = app.globalData.privacyResolve;
+    // 拒绝时不传 buttonId（用户未通过同意按钮），仅上报 disagree
+    if (resolve) resolve({ event: 'disagree' });
+    app.globalData.privacyResolve = null;
+    this.setData({ showPrivacy: false });
+  },
+
   // 读取剪贴板：存全文用于解析，仅用前 30 字做预览提示
   doReadClipboard() {
     wx.getClipboardData({
@@ -75,22 +113,21 @@ Page({
           this.setData({ hasClipboard: false, clipboardText: '', clipboardTip: '' });
         }
       },
-      // 隐私未授权或系统拦截时走这里。此前没有 fail 回调，被拦截时静默失败，
-      // 表现和"没复制内容"完全一样，无法判断究竟是内容为空还是授权被拒。
+      // 隐私未授权或系统拦截时走这里。
+      // 隐私相关失败（buttonId is wrong / not authorized）：通常意味着用户在弹窗点了"拒绝"，
+      // 弹窗本身已说明，这里完全静默，避免 onShow 场景重复打扰。
       fail: (err) => {
         const msg = (err && err.errMsg) || '';
         console.warn('[clipboard] 读取失败:', msg);
         this.setData({ hasClipboard: false, clipboardText: '', clipboardTip: '' });
-        // 隐私拒绝时明确告知，而不是让用户以为没复制内容（同一会话只提示一次）
+        const isPrivacy = msg.indexOf('privacy') >= 0 || msg.indexOf('private_') >= 0 || msg.indexOf('auth') >= 0;
+        if (isPrivacy) return;
+        // 其他系统原因（如未授权剪贴板）：同一会话只提示一次，引导用户手动粘贴
         if (this._clipFailShown) return;
         this._clipFailShown = true;
         wx.showModal({
           title: '剪贴板不可用',
-          content:
-            (msg.indexOf('privacy') >= 0 || msg.indexOf('private_') >= 0 || msg.indexOf('auth') >= 0
-              ? '需要你同意隐私协议后才能读取剪贴板。'
-              : '系统未授权读取剪贴板。') +
-            '你也可以直接在下方输入框粘贴文本。',
+          content: '系统未授权读取剪贴板。你也可以直接在下方输入框粘贴文本。',
           confirmText: '查看协议',
           cancelText: '知道了',
           success: (r) => {

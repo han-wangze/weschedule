@@ -12,5 +12,16 @@
 .input { width:100%; min-height:200rpx; font-size:28rpx; }
 .parse-btn { margin:8rpx 24rpx 0; }
 .recent-item { display:flex; justify-content:space-between; align-items:center; }
-.ri-title { font-size:28rpx; font-weight:500; }
-.ri-date { font-size:24rpx; color:#9aa0a6; }
+.ri-title { font-size: 28rpx; font-weight: 500; }
+.ri-date { font-size: 24rpx; color: #9aa0a6; }
+
+/* 隐私授权弹窗 */
+.privacy-mask { position: fixed; left: 0; right: 0; top: 0; bottom: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.privacy-dialog { width: 80%; background: #fff; border-radius: 16rpx; padding: 40rpx 32rpx; box-sizing: border-box; }
+.privacy-title { font-size: 34rpx; font-weight: 600; margin-bottom: 16rpx; }
+.privacy-content { font-size: 28rpx; color: #555; line-height: 1.6; margin-bottom: 32rpx; }
+.privacy-actions { display: flex; gap: 16rpx; }
+.pb-btn { flex: 1; font-size: 28rpx; margin: 0; padding: 0; height: 80rpx; line-height: 80rpx; border-radius: 12rpx; text-align: center; }
+.pb-btn::after { border: none; }
+.pb-btn.primary { background: #07c160; color: #fff; }
+.pb-btn.ghost { background: #f2f2f2; color: #333; }

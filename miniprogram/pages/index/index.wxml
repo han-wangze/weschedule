@@ -27,4 +27,16 @@
     <text class="ri-title">{{item.title}}</text>
     <text class="ri-date">{{item.date}} {{item.start_time}}</text>
   </view>
+
+  <view wx:if="{{showPrivacy}}" class="privacy-mask">
+    <view class="privacy-dialog">
+      <view class="privacy-title">隐私授权</view>
+      <view class="privacy-content">WeSchedule 需要读取你复制的文本以识别其中的日程。文本仅用于当次解析，默认不留存原文。</view>
+      <view class="privacy-actions">
+        <button class="pb-btn ghost" bindtap="onViewPrivacy">查看协议</button>
+        <button class="pb-btn" bindtap="onDisagreePrivacy">暂不</button>
+        <button id="agree-btn" class="pb-btn primary" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacy">同意</button>
+      </view>
+    </view>
+  </view>
 </view>
