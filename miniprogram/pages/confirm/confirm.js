@@ -21,6 +21,7 @@ Page({
     existing: [],          // 已保存的活跃日程（用于冲突比对）
     currentWarn: null,     // { level:'hard'|'soft', text, partners:[...] }
     suggestions: [],       // 硬冲突时的规则法空闲槽 chip
+    swiperH: 0,            // 表单区高度（px），由 measure() 实测得出
   },
 
   onLoad(options) {
@@ -33,6 +34,30 @@ Page({
       this.setData({ events: [this.blankEvent()], manual: true });
     }
     this.loadExisting();
+  },
+
+  // 量出「窗口高 - 顶部警示区 - 底部按钮区」，把剩下的高度给 swiper。
+  // 不用 100vh：真机上 100vh 比可视区高，配合 page{overflow:hidden} 会把整页裁成空白；
+  // 也不给 swiper 用绝对定位撑高，swiper 拿不到确定高度会塌成 0。
+  measure() {
+    wx.nextTick(() => {
+      const q = wx.createSelectorQuery().in(this);
+      q.select('.top').boundingClientRect();
+      q.select('.bottom').boundingClientRect();
+      q.exec((res) => {
+        let winH = 0;
+        try {
+          const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+          winH = info.windowHeight || info.screenHeight || 0;
+        } catch (e) {}
+        const topH = (res && res[0] && res[0].height) || 0;
+        // 底部按钮区量不到时按典型高度兜底：宁可让页面多滚一点，也不能把按钮顶出屏幕
+        const botH = (res && res[1] && res[1].height) || 120;
+        let h = winH ? winH - topH - botH : 420;   // 取不到窗口信息时给个兜底值
+        h = Math.max(240, Math.floor(h));
+        if (Math.abs(h - (this.data.swiperH || 0)) > 2) this.setData({ swiperH: h });
+      });
+    });
   },
 
   async loadExisting() {
@@ -53,12 +78,18 @@ Page({
   },
 
   // 依据当前卡片，生成内联警示 + 建议 chip
+  // 顶部警示区一变高变矮，表单区可用高度就变了，所以每次更新后都重新量一次
+  applyWarn(currentWarn, suggestions) {
+    this.setData({ currentWarn, suggestions });
+    this.measure();
+  },
+
   updateCurrent() {
     const i = this.data.index;
     const ev = this.data.events[i];
-    if (!ev) { this.setData({ currentWarn: null, suggestions: [] }); return; }
+    if (!ev) { this.applyWarn(null, []); return; }
     const partners = conflict.partnersOf(ev, this._all || []);
-    if (!partners.length) { this.setData({ currentWarn: null, suggestions: [] }); return; }
+    if (!partners.length) { this.applyWarn(null, []); return; }
     const hard = partners.some((p) => !p.is_deadline && !ev.is_deadline);
     const level = hard ? 'hard' : 'soft';
     const top = partners[0];
@@ -71,7 +102,7 @@ Page({
       suggestions = conflict.findFreeSlots(ev, pool, 2)
         .map((s) => Object.assign({}, s, { k: s.date + s.start_time }));
     }
-    this.setData({ currentWarn: { level, text, count: partners.length }, suggestions });
+    this.applyWarn({ level, text, count: partners.length }, suggestions);
   },
 
   onPickSlot(e) {

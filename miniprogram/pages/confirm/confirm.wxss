@@ -1,42 +1,29 @@
-/* 确认页：整页固定高度 —— 顶部警示区 + 中间可滚表单 + 底部吸底按钮
-   旧版给 .swiper 写死 720rpx，8 行字段约 790rpx，「是否截止日」和「模糊时间」
-   会被直接裁掉且无法滚动（真机截图已确认：裁切线下还有大段空白）。 */
-page { overflow: hidden; }
-
-.confirm-page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  box-sizing: border-box;
-}
-
-.top { flex-shrink: 0; }
+/* 确认页布局：顶部警示区 + 中部 swiper + 底部按钮，全部走正常文档流。
+   swiper 的高度由 JS 用窗口高度减去上、下两块实测高度算出（见 confirm.js 的 measure）。
+   ⚠️ 踩过的两个坑，别再用：
+     ① height:100vh + page{overflow:hidden}：真机上 100vh 比可视区高，底部按钮被挤出屏幕、
+        页面又禁止滚动，整页显示为空白；
+     ② 给 swiper 用 position:absolute + top/bottom 撑高：swiper 拿不到确定高度会塌成 0，
+        里面的 scroll-view 一起变 0。 */
+.confirm-page { padding-bottom: 0; }
 
 .hint { text-align: center; color: #9aa0a6; font-size: 24rpx; margin: 16rpx 0; }
 
-/* 中间区域：用绝对定位撑满剩余高度，swiper 才能拿到确定的高度 */
-.swiper-wrap { flex: 1; position: relative; min-height: 0; }
-.swiper { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.swiper { width: 100%; }
 .form-scroll { height: 100%; }
-.form-tail { height: 24rpx; }
+.form-tail { height: 20rpx; }
 
 .row { display: flex; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #f0f2f5; }
+.row:last-child { border-bottom: none; }
 .label { width: 200rpx; color: #9aa0a6; font-size: 28rpx; flex-shrink: 0; }
 .field { flex: 1; font-size: 30rpx; }
 .picker-value { flex: 1; font-size: 30rpx; color: #333; padding: 6rpx 0; }
 .switch-row { justify-content: space-between; }
-.row:last-child { border-bottom: none; }
 .fuzzy { flex: 1; color: #b8860b; font-size: 28rpx; }
 
-/* 底部吸底区 */
-.bottom {
-  flex-shrink: 0;
-  background: #f5f6f8;
-  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
-  box-shadow: 0 -1rpx 0 #eceef2;
-}
+.bottom { background: #f5f6f8; }
 .feedback-link { text-align: center; color: #fa5151; font-size: 26rpx; margin: 12rpx 0 4rpx; text-decoration: underline; }
-.actions { display: flex; margin: 12rpx 24rpx 4rpx; gap: 20rpx; }
+.actions { display: flex; margin: 8rpx 24rpx 0; gap: 20rpx; }
 .actions button { flex: 1; }
 
 /* 冲突内联警示（非阻断，不弹窗） */

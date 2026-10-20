@@ -17,7 +17,7 @@
   </view>
 
   <view class="swiper-wrap">
-    <swiper class="swiper" bindchange="onSwiper">
+    <swiper class="swiper" style="height:{{swiperH}}px" bindchange="onSwiper">
       <swiper-item wx:for="{{events}}" wx:key="_k">
         <scroll-view class="form-scroll" scroll-y enhanced show-scrollbar="{{false}}">
           <view class="card">
