@@ -3,11 +3,12 @@
     <text class="empty-text">还没有日程</text>
     <button class="empty-btn" bindtap="goHome">去首页解析群消息</button>
   </view>
-  <block wx:for="{{groups}}" wx:for-item="g" wx:key="date">
-    <view class="date-head" wx:if="{{!g.pending}}">{{g.date}}</view>
-    <view class="date-head pending-head" wx:else>待定 · {{g.items.length}} 件还没定时间</view>
+  <block wx:for="{{groups}}" wx:for-item="g" wx:key="key">
+    <view class="date-head pending-head" wx:if="{{g.pending}}">待定 · {{g.items.length}} 件还没定时间</view>
+    <view class="date-head expired-head" wx:elif="{{g.expired}}">已过期 · 共 {{g.total}} 件（显示最近 {{g.items.length}} 件）</view>
+    <view class="date-head" wx:else>{{g.date}}</view>
     <view wx:for="{{g.items}}" wx:for-item="item" wx:key="_id" class="item-wrap">
-      <view class="item"
+      <view class="item {{g.expired ? 'item-expired' : ''}}"
             bindtouchstart="onTouchStart"
             bindtouchmove="onTouchMove"
             bindtouchend="onTouchEnd"

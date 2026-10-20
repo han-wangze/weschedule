@@ -25,16 +25,41 @@ Page({
   },
 
   groupByDate(events) {
+    const pad = (n) => (n < 10 ? '0' + n : '' + n);
+    const d = new Date();
+    const today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+
     const dated = {};
     const undated = [];
     events.forEach((e) => {
       if (!e.date) { undated.push(e); return; }
       (dated[e.date] = dated[e.date] || []).push(e);
     });
-    const groups = Object.keys(dated).sort().map((date) => ({ date, items: dated[date] }));
+
+    const dates = Object.keys(dated).sort();
+    // 未来的按日期升序；过期的倒序，单独成区放在最后
+    const upcoming = dates.filter((k) => k >= today);
+    const past = dates.filter((k) => k < today).slice().reverse();
+
+    const groups = upcoming.map((date) => ({ key: date, date, items: dated[date] }));
+
+    const expired = [];
+    past.forEach((k) => expired.push.apply(expired, dated[k]));
+    if (expired.length) {
+      // 过期项只展示最近 5 条，避免它们把未来的日程挤出视野（数据仍在库里）
+      groups.push({
+        key: 'expired',
+        date: '',
+        expired: true,
+        total: expired.length,
+        items: expired.slice(0, 5),
+      });
+    }
+
     // 没有日期的（模糊日程）单独成区，放在最前：这类是还没落地的松散事项，
     // 埋在有日期的列表末尾等于永远想不起来。它们不参与冲突检测与提醒。
-    if (undated.length) groups.unshift({ date: '', pending: true, items: undated });
+    if (undated.length) groups.unshift({ key: 'pending', date: '', pending: true, items: undated });
+
     this.setData({ groups, pendingCount: undated.length });
   },
 

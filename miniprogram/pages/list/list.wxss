@@ -5,6 +5,9 @@
 .date-head { font-size:26rpx; color:#9aa0a6; margin:24rpx 28rpx 4rpx; }
 /* 没有日期的事件单独成区，用琥珀色区分，避免和日期分组混在一起 */
 .date-head.pending-head { color:#ad6800; font-weight:600; }
+/* 过期项收在列表最后，最多 5 条，视觉上压暗 */
+.date-head.expired-head { color:#b0b3b8; }
+.item-expired { opacity:.62; }
 .item-wrap { position:relative; overflow:hidden; margin:8rpx 24rpx; }
 .item {
   background:#fff; border-radius:16rpx; padding:24rpx;

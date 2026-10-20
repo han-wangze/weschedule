@@ -20,6 +20,8 @@
 .picker-value { flex: 1; font-size: 30rpx; color: #333; padding: 6rpx 0; }
 .switch-row { justify-content: space-between; }
 .fuzzy { flex: 1; color: #b8860b; font-size: 28rpx; }
+/* 无日期的日程不会提醒（remind 直接跳过），界面上不留一个假的"30 分钟" */
+.no-remind { flex: 1; color: #b0b3b8; font-size: 24rpx; line-height: 1.4; }
 
 .bottom { background: #f5f6f8; }
 .feedback-link { text-align: center; color: #fa5151; font-size: 26rpx; margin: 12rpx 0 4rpx; text-decoration: underline; }

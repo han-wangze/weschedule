@@ -191,7 +191,12 @@ Page({
   async loadRecent() {
     try {
       const res = await api.listEvents();
-      this.setData({ recent: (res.events || []).slice(0, 3) });
+      const pad = (n) => (n < 10 ? '0' + n : '' + n);
+      const d = new Date();
+      const today = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      // listEvents 现在会带回最近 7 天的过期项（列表页要用），首页"最近日程"只显示还没到的
+      const upcoming = (res.events || []).filter((e) => e.date && e.date >= today);
+      this.setData({ recent: upcoming.slice(0, 3) });
     } catch (e) {}
   },
 });

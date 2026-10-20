@@ -31,6 +31,14 @@ function toDateText(dateStr) {
   return m[1] + '年' + m[2] + '月' + m[3] + '日';
 }
 
+// YYYY-MM-DD 偏移若干天（按北京时间算，云函数本身跑在 UTC）
+function shiftDate(dateStr, days) {
+  const t = new Date(dateStr + 'T00:00:00+08:00').getTime() + days * 86400000;
+  const d = new Date(t + 8 * 3600 * 1000);
+  const pad = (n) => (n < 10 ? '0' + n : '' + n);
+  return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+}
+
 // 锚点：截止日取当天 23:59，其余取开始时间（无开始时间按 09:00）
 function anchorOf(e) {
   return e.is_deadline ? toMs(e.date, '23:59') : toMs(e.date, e.start_time);
@@ -87,10 +95,19 @@ exports.main = async () => {
     }
 
     const anchor = anchorOf(subject);
-    const startAt = anchor - (Number(subject.reminder_minutes) || 30) * 60 * 1000;
+    const mins = Number(subject.reminder_minutes) || 30;
+    const startAt = anchor - mins * 60 * 1000;
     const prevEvening = toMs(subject.date, '20:00') - 24 * 3600 * 1000;
 
     let remindAt = startAt;
+    // 截止日不再用「23:59 减整天数」算：1440 分钟减下来正好落在前一天 23:59，
+    // 用户睡着的时候弹一条"明天交"。规则改为：提前整天数的，落在截止日前一天 20:00；
+    // 不足一天的，仍按分钟从 23:59 往前推（那是当天内的提前量，不会跨到深夜）。
+    if (subject.is_deadline) {
+      const days = Math.floor(mins / 1440);
+      if (days >= 1) remindAt = toMs(shiftDate(subject.date, -days), '20:00');
+    }
+
     let prepMode = false;
     if (subject.is_prep) {
       if (now >= prevEvening && now < anchor) { remindAt = prevEvening; prepMode = true; }
