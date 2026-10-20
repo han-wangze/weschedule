@@ -166,9 +166,9 @@ def evaluate(items, predictions):
     tp = fp = tn = fn = 0
     e_fp = e_total = 0
     event_tp = event_pred = event_gold = 0
-    date_ok = date_total = 0
     time_ok = time_total = 0
     loc_ok = loc_total = 0
+    fab_time = fab_loc = 0   # 编造：gold 该字段为空，模型却填了值
     end_ok = end_total = 0
     badcases = []
 
@@ -209,18 +209,22 @@ def evaluate(items, predictions):
                 used[hi] = True
                 event_tp += 1
                 pe = pred_events[hi]
-                date_total += 1
-                if pe.get('date') == ge.get('date'):
-                    date_ok += 1
+                # ⚠️ date 不单独统计准确率：配对条件本身就要求 date 相等（上面一行），
+                #    配上了再比 date 必然为真，是一个恒等于 100% 的伪指标。
+                #    date 错的代价体现在事件级 P/R —— 配不上就算漏报，会配对算多报。
                 if ge.get('start_time') is not None:
                     time_total += 1
                     if pe.get('start_time') == ge.get('start_time'):
                         time_ok += 1
+                elif pe.get('start_time'):
+                    fab_time += 1   # gold 无钟点，模型却给了一个——正是 prompt 规则 4 禁止的编造
                 loc_total += 1
                 gl = (ge.get('location') or '')
                 pl = (pe.get('location') or '')
                 if gl == pl or gl in pl or pl in gl:
                     loc_ok += 1
+                elif not gl and pl:
+                    fab_loc += 1    # gold 无地点，模型却给了一个
 
         # 端到端完全正确率：所有标注事件命中 + 每个命中 date/time(精确)/location 全对 + 无多报
         tp2, used2 = match_events(gold_events, pred_events)
@@ -251,7 +255,9 @@ def evaluate(items, predictions):
             badcases.append({'id': item['id'], 'category': item['category'], 'text': item['text'],
                              'gold': item['events'], 'pred': parsed.get('events')})
 
-    end_total = len(items)
+    # 端到端分母只算"该有日程"的消息：E 类（闲聊）没有标注事件，无从判定"解析对不对"，
+    # 也不该被算成必然失败。旧口径分母含 E、分子不含 E，把 dev 的 60/68 压成了 60/80（75.0%）。
+    end_total = sum(1 for i in items if i['has_schedule'])
 
     def safe(n, d):
         return round(100.0 * n / d, 1) if d else 0.0
@@ -268,10 +274,10 @@ def evaluate(items, predictions):
         'acc': acc, 'P': p, 'R': r, 'F1': f1,
         'miss_rate': miss_rate, 'e_total': e_total,
         'ev_p': ev_p, 'ev_r': ev_r,
-        'date_acc': safe(date_ok, date_total), 'date_total': date_total,
         'time_acc': safe(time_ok, time_total), 'time_total': time_total,
         'loc_acc': safe(loc_ok, loc_total), 'loc_total': loc_total,
-        'end_acc': safe(end_ok, end_total), 'end_total': end_total,
+        'fab_time': fab_time, 'fab_loc': fab_loc,
+        'end_acc': safe(end_ok, end_total), 'end_ok': end_ok, 'end_total': end_total,
         'badcases': badcases,
     }
 
@@ -312,10 +318,10 @@ def main():
     print('误报率(E类判有):    %s%%   (达标线 <=5%%)   %s' % (m['miss_rate'], '达标' if m['miss_rate'] <= 5 else '未达标'))
     print('事件级:  P=%s  R=%s' % (m['ev_p'], m['ev_r']))
     print('字段准确率(命中事件):')
-    print('  date      %s%%   (达标线 >=90%%)   %s' % (m['date_acc'], '达标' if m['date_acc'] >= 90 else '未达标'))
     print('  time      %s%%   (达标线 >=80%%)   %s' % (m['time_acc'], '达标' if m['time_acc'] >= 80 else '未达标'))
     print('  location  %s%%   (达标线 >=70%%)   %s' % (m['loc_acc'], '达标' if m['loc_acc'] >= 70 else '未达标'))
-    print('端到端完全正确率:   %s%%   (达标线 >=75%%)   %s' % (m['end_acc'], '达标' if m['end_acc'] >= 75 else '未达标'))
+    print('编造(命中事件·gold 为空而模型填值):  time=%d  location=%d' % (m['fab_time'], m['fab_loc']))
+    print('整条消息全对率:     %s%%   (%d/%d，分母=该有日程的消息数)' % (m['end_acc'], m['end_ok'], m['end_total']))
     print('-' * 50)
     print('badcase 数量: %d' % len(m['badcases']))
     print('=' * 50)
