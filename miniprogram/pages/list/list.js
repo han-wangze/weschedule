@@ -25,10 +25,17 @@ Page({
   },
 
   groupByDate(events) {
-    const map = {};
-    events.forEach((e) => { (map[e.date] = map[e.date] || []).push(e); });
-    const groups = Object.keys(map).sort().map((date) => ({ date, items: map[date] }));
-    this.setData({ groups });
+    const dated = {};
+    const undated = [];
+    events.forEach((e) => {
+      if (!e.date) { undated.push(e); return; }
+      (dated[e.date] = dated[e.date] || []).push(e);
+    });
+    const groups = Object.keys(dated).sort().map((date) => ({ date, items: dated[date] }));
+    // 没有日期的（模糊日程）单独成区，放在最前：这类是还没落地的松散事项，
+    // 埋在有日期的列表末尾等于永远想不起来。它们不参与冲突检测与提醒。
+    if (undated.length) groups.unshift({ date: '', pending: true, items: undated });
+    this.setData({ groups, pendingCount: undated.length });
   },
 
   onTouchStart(e) { this.startX = e.touches[0].clientX; },

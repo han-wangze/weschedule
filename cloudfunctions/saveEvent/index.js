@@ -17,6 +17,9 @@ exports.main = async (event) => {
     const isPrep = !e.is_deadline && PREP_RE.test(e.title || '');
     return Object.assign({}, e, {
       _openid: OPENID,
+      // 模糊日程允许没有日期：统一存 null（不用 undefined，避免字段在库里消失、
+      // 列表分组时拿不到 key）。这类事件只做"待定"展示，不参与冲突与提醒。
+      date: e.date || null,
       status: 'active',
       reminded: false,
       is_prep: !!isPrep,

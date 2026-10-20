@@ -26,8 +26,8 @@ Page({
   onLoad(options) {
     if (options.payload) {
       const res = JSON.parse(decodeURIComponent(options.payload));
-      const events = (res.events || []).map((e) =>
-        Object.assign({}, e, { peopleText: (e.people || []).join('、') }));
+      const events = (res.events || []).map((e, i) =>
+        Object.assign({}, e, { _k: 'e' + i, peopleText: (e.people || []).join('、') }));
       this.setData({ events, requestId: res.request_id || '', rawText: res.raw_text || '' });
     } else if (options.manual) {
       this.setData({ events: [this.blankEvent()], manual: true });
@@ -67,7 +67,9 @@ Page({
     let suggestions = [];
     if (hard && ev.start_time) {
       const pool = this.data.events.concat(this.data.existing).filter((e) => e !== ev);
-      suggestions = conflict.findFreeSlots(ev, pool, 2);
+      // 加 k 作为 wx:key：同一天可能出现两个候选槽，只靠 date 会重 key
+      suggestions = conflict.findFreeSlots(ev, pool, 2)
+        .map((s) => Object.assign({}, s, { k: s.date + s.start_time }));
     }
     this.setData({ currentWarn: { level, text, count: partners.length }, suggestions });
   },
@@ -80,6 +82,8 @@ Page({
       [key + '.date']: slot.date,
       [key + '.start_time']: slot.start_time,
       [key + '.end_time']: slot.end_time,
+      // 建议槽是确切时间，原来的模糊表述要清掉，否则页面会同时显示两个时间
+      [key + '.fuzzy_time']: null,
     });
     this.computeConflicts();
   },
@@ -88,6 +92,7 @@ Page({
     const d = new Date();
     const pad = (n) => (n < 10 ? '0' + n : '' + n);
     return {
+      _k: 'm' + (this._mk = (this._mk || 0) + 1),
       title: '',
       date: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()),
       start_time: '09:00',

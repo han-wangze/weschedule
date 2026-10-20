@@ -91,7 +91,11 @@ function validate(events) {
   if (!Array.isArray(events)) return false;
   for (const e of events) {
     if (typeof e.title !== 'string' || !e.title) return false;
-    if (typeof e.date !== 'string' || !DATE_RE.test(e.date)) return false;
+    // date 允许为 null：prompt 规则 3 明确要求"未指向具体某天时 date 必须填 null"，
+    // 旧校验要求必须是 YYYY-MM-DD，等于把这条规则判成非法输出 —— 所有模糊消息
+    // （"晚上有空吃饭""这周末约球"）都会重试一次后稳定返回 PARSE_FAILED。
+    if (!(e.date === null || e.date === undefined ||
+      (typeof e.date === 'string' && DATE_RE.test(e.date)))) return false;
     if (e.start_time !== null && e.start_time !== undefined && typeof e.start_time !== 'string') return false;
     if (e.end_time !== null && e.end_time !== undefined && typeof e.end_time !== 'string') return false;
     if (typeof e.is_deadline !== 'boolean') return false;
@@ -161,7 +165,7 @@ exports.main = async (event) => {
         has_schedule: !!parsed.has_schedule,
         events: (parsed.events || []).map((e) => ({
           title: e.title,
-          date: e.date,
+          date: e.date || null,
           start_time: e.start_time || null,
           end_time: e.end_time || null,
           fuzzy_time: e.fuzzy_time || null,

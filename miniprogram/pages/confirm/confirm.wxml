@@ -1,39 +1,47 @@
 <view class="confirm-page">
-  <view class="hint" wx:if="{{events.length > 1}}">共 {{events.length}} 个日程，左右滑动切换</view>
+  <view class="top">
+    <view class="hint" wx:if="{{events.length > 1}}">共 {{events.length}} 个日程，左右滑动切换</view>
 
-  <!-- 非阻断式冲突内联警示（不弹窗，保留用户最终控制权） -->
-  <view wx:if="{{currentWarn.level}}" class="warn warn-{{currentWarn.level}}">
-    <text class="warn-icon">⚠️</text>
-    <text class="warn-text">{{currentWarn.text}}</text>
-  </view>
-  <!-- 硬冲突：给出规则法空闲槽建议 chip（一键采纳，AI 只提案不擅改） -->
-  <view wx:if="{{suggestions.length}}" class="slots">
-    <text class="slots-tip">建议改到：</text>
-    <view wx:for="{{suggestions}}" wx:key="date" class="chip" data-slot="{{item}}" bindtap="onPickSlot">
-      {{item.date}} {{item.start_time}}–{{item.end_time}}
+    <!-- 非阻断式冲突内联警示（不弹窗，保留用户最终控制权） -->
+    <view wx:if="{{currentWarn.level}}" class="warn warn-{{currentWarn.level}}">
+      <text class="warn-icon">⚠️</text>
+      <text class="warn-text">{{currentWarn.text}}</text>
+    </view>
+    <!-- 硬冲突：给出规则法空闲槽建议 chip（一键采纳，AI 只提案不擅改） -->
+    <view wx:if="{{suggestions.length}}" class="slots">
+      <text class="slots-tip">建议改到：</text>
+      <view wx:for="{{suggestions}}" wx:key="k" class="chip" data-slot="{{item}}" bindtap="onPickSlot">
+        {{item.date}} {{item.start_time}}–{{item.end_time}}
+      </view>
     </view>
   </view>
 
-  <swiper class="swiper" bindchange="onSwiper">
-    <swiper-item wx:for="{{events}}" wx:key="index">
-      <view class="card">
-        <view class="row"><text class="label">标题</text><input class="field" value="{{item.title}}" data-field="title" bindinput="editField" placeholder="事项标题" /></view>
-        <view class="row"><text class="label">日期</text><picker class="field" mode="date" value="{{item.date}}" data-field="date" bindchange="editField"><view class="picker-value">{{item.date || '选择日期'}}</view></picker></view>
-        <view class="row"><text class="label">开始</text><picker class="field" mode="time" value="{{item.start_time}}" data-field="start_time" bindchange="editField"><view class="picker-value">{{item.start_time || '选择时间'}}</view></picker></view>
-        <view class="row"><text class="label">结束</text><picker class="field" mode="time" value="{{item.end_time}}" data-field="end_time" bindchange="editField"><view class="picker-value">{{item.end_time || '选择时间'}}</view></picker></view>
-        <view class="row"><text class="label">地点</text><input class="field" value="{{item.location}}" data-field="location" bindinput="editField" placeholder="地点" /></view>
-        <view class="row"><text class="label">参与人</text><input class="field" value="{{item.peopleText}}" bindinput="editPeople" placeholder="逗号分隔" /></view>
-        <view class="row"><text class="label">提前提醒(分)</text><input class="field" type="number" value="{{item.reminder_minutes}}" data-field="reminder_minutes" bindinput="editField" placeholder="30" /></view>
-        <view class="row switch-row"><text class="label">是否截止日</text><switch checked="{{item.is_deadline}}" bindchange="toggleDeadline" color="#07c160" /></view>
-        <view class="row" wx:if="{{item.fuzzy_time}}"><text class="label">模糊时间</text><text class="fuzzy">{{item.fuzzy_time}}</text></view>
-      </view>
-    </swiper-item>
-  </swiper>
+  <view class="swiper-wrap">
+    <swiper class="swiper" bindchange="onSwiper">
+      <swiper-item wx:for="{{events}}" wx:key="_k">
+        <scroll-view class="form-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+          <view class="card">
+            <view class="row"><text class="label">标题</text><input class="field" value="{{item.title}}" data-field="title" bindinput="editField" placeholder="事项标题" /></view>
+            <view class="row"><text class="label">日期</text><picker class="field" mode="date" value="{{item.date}}" data-field="date" bindchange="editField"><view class="picker-value">{{item.date || '选择日期'}}</view></picker></view>
+            <view class="row"><text class="label">开始</text><picker class="field" mode="time" value="{{item.start_time}}" data-field="start_time" bindchange="editField"><view class="picker-value">{{item.start_time || '选择时间'}}</view></picker></view>
+            <view class="row"><text class="label">结束</text><picker class="field" mode="time" value="{{item.end_time}}" data-field="end_time" bindchange="editField"><view class="picker-value">{{item.end_time || '选择时间'}}</view></picker></view>
+            <view class="row"><text class="label">地点</text><input class="field" value="{{item.location}}" data-field="location" bindinput="editField" placeholder="地点" /></view>
+            <view class="row"><text class="label">参与人</text><input class="field" value="{{item.peopleText}}" bindinput="editPeople" placeholder="逗号分隔" /></view>
+            <view class="row"><text class="label">提前提醒(分)</text><input class="field" type="number" value="{{item.reminder_minutes}}" data-field="reminder_minutes" bindinput="editField" placeholder="30" /></view>
+            <view class="row switch-row"><text class="label">是否截止日</text><switch checked="{{item.is_deadline}}" bindchange="toggleDeadline" color="#07c160" /></view>
+            <view class="row" wx:if="{{item.fuzzy_time}}"><text class="label">模糊时间</text><text class="fuzzy">{{item.fuzzy_time}}</text></view>
+          </view>
+          <view class="form-tail"></view>
+        </scroll-view>
+      </swiper-item>
+    </swiper>
+  </view>
 
-  <view wx:if="{{!manual}}" class="feedback-link" bindtap="onFeedback">识别有误？上报 badcase</view>
-
-  <view class="actions">
-    <button class="btn-ghost" bindtap="onBack">再改改</button>
-    <button class="btn-primary" loading="{{writing}}" disabled="{{writing}}" bindtap="onWrite">保存到我的日程</button>
+  <view class="bottom">
+    <view wx:if="{{!manual}}" class="feedback-link" bindtap="onFeedback">识别有误？上报 badcase</view>
+    <view class="actions">
+      <button class="btn-ghost" bindtap="onBack">再改改</button>
+      <button class="btn-primary" loading="{{writing}}" disabled="{{writing}}" bindtap="onWrite">保存到我的日程</button>
+    </view>
   </view>
 </view>
