@@ -87,6 +87,17 @@ function httpsPost(url, headers, payload) {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const _ = db.command;
+
+// ===== 限流（2026-10-21）=====
+// 背景：DeepSeek 按 token 计费，此前解析接口没有任何频率约束——一个人狂点、
+// 或者脚本刷接口，都能把密钥额度烧穿，而云函数账单看不出是谁。
+// 策略：同一 openid 每 60 秒最多 10 次真实解析（正常用户一天也用不到 10 次，
+// 不会误伤）；被拦的请求写一条 error_code=RATE_LIMITED 的记录，便于事后看滥用。
+// 并发安全：先写一条占位记录再数窗口——如果"先数后写"，同时发出的 10 个请求
+// 会全都在写之前读到同一个旧计数，全部放行。
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_MAX = 10;
 function validate(events) {
   if (!Array.isArray(events)) return false;
   for (const e of events) {
@@ -142,6 +153,7 @@ exports.main = async (event) => {
   if (!DEEPSEEK_API_KEY) {
     return { success: false, error_code: 'NO_API_KEY', error_msg: '云端未配置 DEEPSEEK_API_KEY 环境变量，请在云函数配置中添加' };
   }
+  const { OPENID } = cloud.getWXContext();
   const requestId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
   const start = Date.now();
   const text = (event.text || '').slice(0, 2000); // E2 超长截断
@@ -149,6 +161,43 @@ exports.main = async (event) => {
   let success = false;
   let errorCode = null;
   let result = null;
+
+  // 1) 先占位：这条记录同时也是"本次请求"的日志，收尾时原地更新，不再写第二条
+  let slotId = null;
+  try {
+    const add = await db.collection('parse_logs').add({
+      data: {
+        _openid: OPENID,          // 限流按人统计，历史日志没有这个字段（不影响）
+        request_id: requestId,
+        input_len: text.length,
+        input_hash: hashStr(text),
+        prompt_version: PROMPT_VERSION,
+        model: MODEL,
+        output_json: null,
+        latency_ms: 0,
+        success: false,
+        error_code: 'PENDING',
+        created_at: start,
+      },
+    });
+    slotId = add._id;
+  } catch (e) { /* 占位失败不阻断解析，退回"事后写一条"的旧行为 */ }
+
+  // 2) 数窗口：占位已经把本次算进去，所以是 > 而不是 >=
+  if (slotId) {
+    try {
+      const cnt = await db.collection('parse_logs').where({
+        _openid: OPENID,
+        created_at: _.gte(start - RATE_WINDOW_MS),
+      }).count();
+      if (cnt.total > RATE_MAX) {
+        await db.collection('parse_logs').doc(slotId).update({
+          data: { error_code: 'RATE_LIMITED', latency_ms: Date.now() - start },
+        });
+        return { success: false, error_code: 'RATE_LIMITED' };
+      }
+    } catch (e) { /* 计数失败就放行：宁可少限，不能把所有人挡在外面 */ }
+  }
 
   try {
     let parsed = await callLLM(text, ref);
@@ -183,23 +232,31 @@ exports.main = async (event) => {
     errorCode = (e && e.message === 'LLM_TIMEOUT') ? 'LLM_TIMEOUT' : 'PARSE_FAILED';
   }
 
-  // 写 parse_logs（不留原文）
-  try {
-    await db.collection('parse_logs').add({
-      data: {
-        request_id: requestId,
-        input_len: text.length,
-        input_hash: hashStr(text),
-        prompt_version: PROMPT_VERSION,
-        model: MODEL,
-        output_json: success ? result : null,
-        latency_ms: Date.now() - start,
-        success,
-        error_code: errorCode,
-        created_at: Date.now(),
-      },
-    });
-  } catch (e) {}
+  // 3) 收尾：更新占位记录（不留原文）
+  const patch = {
+    output_json: success ? result : null,
+    latency_ms: Date.now() - start,
+    success,
+    error_code: errorCode,
+  };
+  if (slotId) {
+    try { await db.collection('parse_logs').doc(slotId).update({ data: patch }); } catch (e) {}
+  } else {
+    // 占位没成功（极端情况）：补写一条，保证日志不丢
+    try {
+      await db.collection('parse_logs').add({
+        data: Object.assign({
+          _openid: OPENID,
+          request_id: requestId,
+          input_len: text.length,
+          input_hash: hashStr(text),
+          prompt_version: PROMPT_VERSION,
+          model: MODEL,
+          created_at: start,
+        }, patch),
+      });
+    } catch (e) {}
+  }
 
   if (!success) return { success: false, error_code: errorCode || 'PARSE_FAILED' };
   return {

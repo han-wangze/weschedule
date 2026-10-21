@@ -29,6 +29,7 @@ const ERROR_TEXT = {
   NO_API_KEY: '解析服务未配置密钥，暂时不可用',
   LLM_TIMEOUT: '解析超时，请再试一次',
   PARSE_FAILED: '没看懂这段话，可重试或手动创建',
+  RATE_LIMITED: '操作太频繁，请一分钟后再试',
   EMPTY: '没有可保存的内容',
   EMPTY_TITLE: '标题不能为空',
   MISSING_ID: '参数缺失，请重进页面',
