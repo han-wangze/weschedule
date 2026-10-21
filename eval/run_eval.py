@@ -84,12 +84,17 @@ def load_corpus():
 
 
 def fixed_split(items, seed=20260717):
-    ids = sorted(i['id'] for i in items)
+    # 带 split_hint 的条目固定进入指定集合：后续加的语料（如长消息 H 类）只进 test，
+    # 不参与随机切分——否则 dev 会变，历史数字就不可比了。
+    pinned = {i['id']: i['split_hint'] for i in items if i.get('split_hint')}
+    ids = sorted(i['id'] for i in items if not i.get('split_hint'))
     rng = random.Random(seed)
     rng.shuffle(ids)
     n = max(1, int(len(ids) * 0.8))
     dev_ids = set(ids[:n])
-    split = {i['id']: ('dev' if i['id'] in dev_ids else 'test') for i in items}
+    split = {}
+    for i in items:
+        split[i['id']] = pinned.get(i['id']) or ('dev' if i['id'] in dev_ids else 'test')
     with open(SPLIT_FILE, 'w', encoding='utf-8') as f:
         json.dump(split, f, ensure_ascii=False, indent=2)
     return split
