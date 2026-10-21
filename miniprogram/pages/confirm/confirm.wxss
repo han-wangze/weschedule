@@ -32,6 +32,8 @@
 .warn { display: flex; align-items: center; margin: 16rpx 24rpx 0; padding: 16rpx 20rpx; border-radius: 12rpx; font-size: 26rpx; line-height: 1.4; }
 .warn-hard { background: #fdecec; color: #e54d42; border: 1rpx solid #f5c6c6; }
 .warn-soft { background: #fff7e6; color: #ad6800; border: 1rpx solid #ffe0a3; }
+/* 模糊日程的边界说明：不是警示，用中性色，避免和真冲突抢注意力 */
+.warn-info { background: #f2f3f5; color: #5f6368; border: 1rpx solid #e4e6eb; }
 .warn-icon { margin-right: 10rpx; }
 /* 规则法空闲槽建议 chip */
 .slots { display: flex; flex-wrap: wrap; align-items: center; margin: 12rpx 24rpx 0; }

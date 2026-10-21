@@ -162,9 +162,17 @@ Page({
       api.logEvent('parse_request', { text_len: text.length });
       const res = await api.parse(text);
       if (!res || !res.success) {
-        wx.showToast({ title: '解析失败，请重试', icon: 'none' });
+        // 按 error_code 给文案：不可重试的错误（没配密钥/没看懂）不说"请重试"
+        const code = (res && res.error_code) || 'CALL_FAILED';
+        api.logEvent('parse_result', { success: false, error_code: code });
+        wx.showToast({ title: api.errorText(code, '解析失败，请重试'), icon: 'none' });
         return;
       }
+      api.logEvent('parse_result', {
+        success: true,
+        has_schedule: !!res.has_schedule,
+        event_count: (res.events || []).length,
+      });
       // 无日程：引导手动创建（E3）
       if (!res.has_schedule || !res.events || !res.events.length) {
         wx.showModal({
@@ -182,7 +190,8 @@ Page({
       this.setData({ inputText: '' });
       wx.navigateTo({ url: '/pages/confirm/confirm?payload=' + encodeURIComponent(JSON.stringify(payload)) });
     } catch (err) {
-      wx.showToast({ title: '网络异常，请稍后', icon: 'none' });
+      api.logEvent('parse_result', { success: false, error_code: 'NETWORK' });
+      wx.showToast({ title: '网络异常，请稍后重试', icon: 'none' });
     } finally {
       this.setData({ loading: false });
     }

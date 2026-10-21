@@ -19,12 +19,14 @@ Page({
     requestId: '',
     rawText: '',
     existing: [],          // 已保存的活跃日程（用于冲突比对）
-    currentWarn: null,     // { level:'hard'|'soft', text, partners:[...] }
+    editMode: false,       // 列表页「编辑」入口进来时为 true
+    currentWarn: null,     // { level:'hard'|'soft'|'info', text, partners:[...] }
     suggestions: [],       // 硬冲突时的规则法空闲槽 chip
     swiperH: 0,            // 表单区高度（px），由 measure() 实测得出
   },
 
   onLoad(options) {
+    this._editId = options.edit_id || '';
     if (options.payload) {
       const res = JSON.parse(decodeURIComponent(options.payload));
       const events = (res.events || []).map((e, i) =>
@@ -33,7 +35,22 @@ Page({
     } else if (options.manual) {
       this.setData({ events: [this.blankEvent()], manual: true });
     }
-    this.loadExisting();
+    // 编辑模式：existing 里就有这条日程本身，等 loadExisting 取回来再挑出来装进表单
+    this.loadExisting().then(() => {
+      if (!this._editId) return;
+      const found = (this.data.existing || []).find((e) => e._id === this._editId);
+      if (!found) {
+        wx.showToast({ title: '日程不存在或已被删除', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 800);
+        return;
+      }
+      this.setData({
+        events: [Object.assign({}, found, { _k: 'x0', peopleText: (found.people || []).join('、') })],
+        editMode: true,
+      });
+      wx.setNavigationBarTitle({ title: '编辑日程' });
+      this.computeConflicts();
+    });
   },
 
   // 量出「窗口高 - 顶部警示区 - 底部按钮区」，把剩下的高度给 swiper。
@@ -71,7 +88,12 @@ Page({
   // 计算冲突：新事件之间 + 新事件与已存事件之间
   computeConflicts() {
     const mine = this.data.events;
-    const pool = mine.concat(this.data.existing);
+    // 编辑模式下 existing 里含着被编辑事件本身，先剔除再比对，
+    // 否则表单里的副本会和库里的原件判出"与自己冲突"
+    const rest = this._editId
+      ? this.data.existing.filter((e) => e._id !== this._editId)
+      : this.data.existing;
+    const pool = mine.concat(rest);
     const all = conflict.detectConflicts(pool);
     this._all = all;
     this.updateCurrent();
@@ -88,6 +110,16 @@ Page({
     const i = this.data.index;
     const ev = this.data.events[i];
     if (!ev) { this.applyWarn(null, []); return; }
+    // 模糊日程（没有日期）无法参与时间比对，不假装能检测：
+    // 把边界显式说出来，用户补上日期后同一份检测代码立即生效
+    if (!ev.date) {
+      this.applyWarn({
+        level: 'info',
+        text: '这条日程还没定日期，暂不参与冲突检测；补上日期后会立即检查。',
+        count: 0,
+      }, []);
+      return;
+    }
     const partners = conflict.partnersOf(ev, this._all || []);
     if (!partners.length) { this.applyWarn(null, []); return; }
     const hard = partners.some((p) => !p.is_deadline && !ev.is_deadline);
@@ -180,7 +212,10 @@ Page({
           raw_text: this.data.rawText,
           parsed_events: this.data.events,
           note: '用户标记识别有误',
-        }).then(() => wx.showToast({ title: '已上报，感谢反馈', icon: 'success' }))
+        }).then(() => {
+          api.logEvent('feedback_submitted', {});
+          wx.showToast({ title: '已上报，感谢反馈', icon: 'success' });
+        })
           .catch(() => wx.showToast({ title: '上报失败', icon: 'none' }));
       },
     });
@@ -218,13 +253,29 @@ Page({
         reminder_minutes: Number(e.reminder_minutes) || 0,
         source: this.data.manual ? 'manual' : 'parsed',
       }));
-      await api.saveEvent(toSave);
+      if (this.data.editMode) {
+        const r = await api.updateEvent(this._editId, toSave[0]);
+        if (!r || !r.success) {
+          wx.showToast({ title: api.errorText(r && r.error_code, '保存失败，请重试'), icon: 'none' });
+          return;
+        }
+        api.logEvent('event_updated', { source: toSave[0].source });
+        wx.showToast({ title: '已保存修改', icon: 'success' });
+        setTimeout(() => wx.navigateBack(), 800);
+        return;
+      }
+      const r = await api.saveEvent(toSave);
+      if (!r || !r.success) {
+        wx.showToast({ title: api.errorText(r && r.error_code, '保存失败，请重试'), icon: 'none' });
+        return;
+      }
       api.logEvent('parse_confirmed', { count: toSave.length, manual: this.data.manual });
+      api.logEvent('event_saved', { count: toSave.length, source: toSave[0].source });
       // 2. 方案 A：日程已存入小程序内，提醒由 remind 云函数（订阅消息）负责
       wx.showToast({ title: '已存入我的日程', icon: 'success' });
       setTimeout(() => wx.switchTab({ url: '/pages/list/list' }), 800);
     } catch (err) {
-      wx.showToast({ title: '保存失败：' + (err.errMsg || '未知错误'), icon: 'none' });
+      wx.showToast({ title: '网络异常，请稍后重试', icon: 'none' });
     } finally {
       this.setData({ writing: false });
     }

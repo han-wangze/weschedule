@@ -1,9 +1,25 @@
-// pages/list/list.js —— 我的日程：按日期分组 + 左滑删除 + 冲突标记
+// pages/list/list.js —— 我的日程：按日期分组 + 左滑（删除/编辑）+ 冲突标记
+// 2026-10-21：左滑露出「删除 / 编辑」两个按钮；点卡片也可进编辑。
+// ⚠️ 左滑位移的三个数（最大位移、吸附阈值、按钮宽度）必须同单位：
+//    触摸坐标是 px，按钮宽度写的是 rpx，早年直接拿 -120px 当 -120rpx 用，
+//    大屏上卡片滑出按钮两倍远，左边露一条空白（px/rpx 错配）。现在统一按
+//    pxPerRpx = 屏宽/750 换算。
 const api = require('../../utils/api.js');
 const conflict = require('../../utils/conflict.js');
 
+const BTN_W_RPX = 120;        // 每个按钮宽（删除 / 编辑 各一个）
+const REVEAL_RPX = BTN_W_RPX * 2;  // 左滑到底露出的总宽度
+
 Page({
-  data: { groups: [], offsets: {} },
+  data: { groups: [], offsets: {}, pxPerRpx: 0.5 },
+
+  onLoad() {
+    try {
+      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      const w = info.windowWidth || info.screenWidth || 375;
+      this.setData({ pxPerRpx: w / 750 });
+    } catch (e) { /* 取不到屏宽时用 0.5 兜底（375px 基准） */ }
+  },
 
   onShow() { this.load(); },
 
@@ -63,19 +79,50 @@ Page({
     this.setData({ groups, pendingCount: undated.length });
   },
 
-  onTouchStart(e) { this.startX = e.touches[0].clientX; },
+  // ===== 左滑手势 =====
+  // 纵轴判定优先：页面本身要能上下滚，斜拖时谁轴移得多听谁的，
+  // 否则滚动列表时卡片会跟着横向抖。
+  onTouchStart(e) {
+    const t = e.touches[0];
+    this._sx = t.clientX;
+    this._sy = t.clientY;
+    this._moved = false;
+    this._vertical = false;
+    this.startX = t.clientX;
+  },
 
   onTouchMove(e) {
-    const dx = e.touches[0].clientX - this.startX;
+    if (this._vertical) return;
+    const t = e.touches[0];
+    const dx = t.clientX - this._sx;
+    const dy = t.clientY - this._sy;
+    if (Math.abs(dy) > Math.abs(dx) + 4) { this._vertical = true; return; }
+    if (Math.abs(dx) > 8) this._moved = true;
+    const maxOff = -(REVEAL_RPX * this.data.pxPerRpx);
+    const offset = dx > 0 ? 0 : Math.max(dx, maxOff);
     const id = e.currentTarget.dataset.id;
-    const offset = dx > 0 ? 0 : Math.max(dx, -120);
     this.setData({ ['offsets.' + id]: offset });
   },
 
   onTouchEnd(e) {
     const id = e.currentTarget.dataset.id;
+    const reveal = REVEAL_RPX * this.data.pxPerRpx;
     const offset = this.data.offsets[id] || 0;
-    this.setData({ ['offsets.' + id]: offset < -60 ? -120 : 0 });
+    // 过半即展开，否则收回
+    this.setData({ ['offsets.' + id]: offset < -reveal / 2 ? -reveal : 0 });
+  },
+
+  // 点卡片进编辑。手势滑过的（_moved/_vertical）不触发，避免"想左滑结果打开了编辑"。
+  onItemTap(e) {
+    if (this._moved || this._vertical) return;
+    const id = e.currentTarget.dataset.id;
+    wx.navigateTo({ url: '/pages/confirm/confirm?edit_id=' + id });
+  },
+
+  onEdit(e) {
+    const id = e.currentTarget.dataset.id;
+    this.setData({ ['offsets.' + id]: 0 });
+    wx.navigateTo({ url: '/pages/confirm/confirm?edit_id=' + id });
   },
 
   goHome() { wx.switchTab({ url: '/pages/index/index' }); },
@@ -93,12 +140,17 @@ Page({
     });
     if (!ok) return;
     try {
-      await api.deleteEvent(id);
+      const r = await api.deleteEvent(id);
+      if (!r || !r.success) {
+        wx.showToast({ title: api.errorText(r && r.error_code, '删除失败'), icon: 'none' });
+        return;
+      }
+      api.logEvent('event_deleted', {});
       wx.showToast({ title: '已删除', icon: 'none' });
       this.setData({ ['offsets.' + id]: 0 });
       this.load();
     } catch (err) {
-      wx.showToast({ title: '删除失败', icon: 'none' });
+      wx.showToast({ title: '网络异常，请稍后重试', icon: 'none' });
     }
   },
 });

@@ -9,6 +9,7 @@
     <view class="date-head" wx:else>{{g.date}}</view>
     <view wx:for="{{g.items}}" wx:for-item="item" wx:key="_id" class="item-wrap">
       <view class="item {{g.expired ? 'item-expired' : ''}}"
+            bindtap="onItemTap"
             bindtouchstart="onTouchStart"
             bindtouchmove="onTouchMove"
             bindtouchend="onTouchEnd"
@@ -23,7 +24,8 @@
           <text class="item-time" wx:else>{{item.fuzzy_time || '时间待定'}}<text wx:if="{{item.location}}" class="item-loc">　📍 {{item.location}}</text></text>
         </view>
       </view>
-      <view class="del-btn" data-id="{{item._id}}" bindtap="onDelete">删除</view>
+      <view class="del-btn" data-id="{{item._id}}" catchtap="onDelete">删除</view>
+      <view class="edit-btn" data-id="{{item._id}}" catchtap="onEdit">编辑</view>
     </view>
   </block>
 </view>

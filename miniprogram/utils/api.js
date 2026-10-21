@@ -15,7 +15,30 @@ const parse = (text) => call('parse', { text });
 const listEvents = () => call('listEvents', {});
 const deleteEvent = (eventId) => call('deleteEvent', { event_id: eventId });
 const saveEvent = (events) => call('saveEvent', { events });
-const logEvent = (eventName, payload = {}) => call('logEvent', { event_name: eventName, payload });
+const updateEvent = (eventId, event) => call('updateEvent', { event_id: eventId, event });
 const feedback = (params) => call('feedback', params);
 
-module.exports = { call, login, parse, listEvents, deleteEvent, saveEvent, logEvent, feedback };
+// 埋点不阻塞主流程：云函数挂了就静默丢掉，不能因为统计失败打断用户操作
+const logEvent = (eventName, payload = {}) =>
+  call('logEvent', { event_name: eventName, payload }).catch(() => {});
+
+// 云函数 error_code → 用户可见文案。
+// 分两类：可重试（超时/网络）与不可重试（没配密钥、没看懂、无权限）——
+// 对不可重试错误提示"请重试"是误导，2026-10-21 补。
+const ERROR_TEXT = {
+  NO_API_KEY: '解析服务未配置密钥，暂时不可用',
+  LLM_TIMEOUT: '解析超时，请再试一次',
+  PARSE_FAILED: '没看懂这段话，可重试或手动创建',
+  EMPTY: '没有可保存的内容',
+  EMPTY_TITLE: '标题不能为空',
+  MISSING_ID: '参数缺失，请重进页面',
+  FORBIDDEN: '无权操作这条日程',
+};
+function errorText(code, fallback) {
+  return ERROR_TEXT[code] || fallback || '操作失败，请重试';
+}
+
+module.exports = {
+  call, login, parse, listEvents, deleteEvent, saveEvent, updateEvent,
+  logEvent, feedback, errorText,
+};

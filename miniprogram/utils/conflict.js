@@ -28,8 +28,12 @@ function durationOf(e) {
   return 60;
 }
 
-// 两事件是否"同天有交集"。DDL 视为占用整天 -> 同日期即相交（软冲突由调用方定级）。
+// 两事件是否"同天有交集"。
+// DDL 视为占用整天 -> 同天即相交（软冲突由调用方定级）；
+// 但两个 DDL 同天是常态（"周三交报告" + "周三交作业"），不判冲突，
+// 否则每条 DDL 日都挂警示，真冲突反被淹没（2026-10-21 改）。
 function overlaps(a, b) {
+  if (a.is_deadline && b.is_deadline) return false;
   if (a.is_deadline || b.is_deadline) return true;
   const sa = toMin(a.start_time);
   const sb = toMin(b.start_time);
@@ -41,8 +45,11 @@ function overlaps(a, b) {
 
 // 对一组事件做冲突检测，返回 [{a, b, level}]，level: 'hard' | 'soft'
 // 规则：双方均为定点事项(is_deadline=false)且时间重叠 -> 硬冲突；
-//      其余同天相交(含任一方 DDL) -> 软冲突。
-// 无日期(date 为 null，模糊时间)的事件不参与。
+//      一方 DDL、另一方定点事项且同天 -> 软冲突（DDL 占整天）；
+//      DDL 与 DDL 同天 -> 不判冲突（见 overlaps 注释）。
+// 无日期(date 为 null)的事件不参与：没有"哪一天"就无法做时间比对，
+// 硬判只会产出噪音。边界由确认页显式提示（见 confirm.js updateCurrent），
+// 用户补上日期后同一份代码立即生效。
 function detectConflicts(events) {
   const arr = (events || []).filter((e) => e && e.date);
   const out = [];

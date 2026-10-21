@@ -179,7 +179,8 @@ exports.main = async (event) => {
       };
     }
   } catch (e) {
-    errorCode = 'PARSE_FAILED';
+    // 区分超时与其它失败：超时可重试，前端文案该说"再试一次"而不是"没看懂"
+    errorCode = (e && e.message === 'LLM_TIMEOUT') ? 'LLM_TIMEOUT' : 'PARSE_FAILED';
   }
 
   // 写 parse_logs（不留原文）
