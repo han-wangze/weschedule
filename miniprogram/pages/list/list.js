@@ -11,9 +11,10 @@ const conflict = require('../../utils/conflict.js');
 
 const BTN_W_RPX = 120;        // 删除按钮宽
 const REVEAL_RPX = BTN_W_RPX; // 左滑到底露出的总宽度
+const HINT_KEY = 'ws_list_hint_done'; // 操作提示是否已看过（只提示一次）
 
 Page({
-  data: { groups: [], offsets: {}, pxPerRpx: 0.5 },
+  data: { groups: [], offsets: {}, pxPerRpx: 0.5, showHint: false },
 
   onLoad() {
     try {
@@ -21,9 +22,19 @@ Page({
       const w = info.windowWidth || info.screenWidth || 375;
       this.setData({ pxPerRpx: w / 750 });
     } catch (e) { /* 取不到屏宽时用 0.5 兜底（375px 基准） */ }
+    // 首次进入给一次操作提示（点按改 / 左滑删），用户做过任一手势后不再出现
+    try { this._hintDone = wx.getStorageSync(HINT_KEY) === true; } catch (e) { this._hintDone = false; }
   },
 
   onShow() { this.load(); },
+
+  // 用户已经用过手势/进过编辑，提示的使命结束
+  markHintDone() {
+    if (this._hintDone) return;
+    this._hintDone = true;
+    try { wx.setStorageSync(HINT_KEY, true); } catch (e) {}
+    if (this.data.showHint) this.setData({ showHint: false });
+  },
 
   async load() {
     try {
@@ -78,7 +89,12 @@ Page({
     // 埋在有日期的列表末尾等于永远想不起来。它们不参与冲突检测与提醒。
     if (undated.length) groups.unshift({ key: 'pending', date: '', pending: true, items: undated });
 
-    this.setData({ groups, pendingCount: undated.length });
+    this.setData({
+      groups,
+      pendingCount: undated.length,
+      // 有内容且没看过提示时才显示
+      showHint: !this._hintDone && events.length > 0,
+    });
   },
 
   // ===== 左滑手势 =====
@@ -110,14 +126,17 @@ Page({
     const id = e.currentTarget.dataset.id;
     const reveal = REVEAL_RPX * this.data.pxPerRpx;
     const offset = this.data.offsets[id] || 0;
+    const open = offset < -reveal / 2;
     // 过半即展开，否则收回
-    this.setData({ ['offsets.' + id]: offset < -reveal / 2 ? -reveal : 0 });
+    this.setData({ ['offsets.' + id]: open ? -reveal : 0 });
+    if (open) this.markHintDone();
   },
 
   // 点卡片进编辑。手势滑过的（_moved/_vertical）不触发，避免"想左滑结果打开了编辑"。
   onItemTap(e) {
     if (this._moved || this._vertical) return;
     const id = e.currentTarget.dataset.id;
+    this.markHintDone();
     wx.navigateTo({ url: '/pages/confirm/confirm?edit_id=' + id });
   },
 

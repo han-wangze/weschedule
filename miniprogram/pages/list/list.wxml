@@ -3,6 +3,8 @@
     <text class="empty-text">还没有日程</text>
     <button class="empty-btn" bindtap="goHome">去首页解析群消息</button>
   </view>
+  <!-- 首次操作提示：操作过一次（点卡片 / 左滑）后自动消失，不再打扰 -->
+  <view wx:if="{{showHint}}" class="hint-bar">点按日程可修改 · 左滑可删除</view>
   <block wx:for="{{groups}}" wx:for-item="g" wx:key="key">
     <view class="date-head pending-head" wx:if="{{g.pending}}">待定 · {{g.items.length}} 件还没定时间</view>
     <view class="date-head expired-head" wx:elif="{{g.expired}}">已过期 · 共 {{g.total}} 件（显示最近 {{g.items.length}} 件）</view>
@@ -23,6 +25,7 @@
           <text class="item-time" wx:if="{{item.start_time}}">{{item.start_time}}<text wx:if="{{item.location}}" class="item-loc">　📍 {{item.location}}</text></text>
           <text class="item-time" wx:else>{{item.fuzzy_time || '时间待定'}}<text wx:if="{{item.location}}" class="item-loc">　📍 {{item.location}}</text></text>
         </view>
+        <text class="chev">›</text>
       </view>
       <view class="del-btn" data-id="{{item._id}}" catchtap="onDelete">删除</view>
     </view>
