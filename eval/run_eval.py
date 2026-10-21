@@ -131,10 +131,15 @@ def call_llm(text, ref_date, ref_weekday, api_key):
     return json.loads(strip_fence(content))
 
 
-def keyword_hit(pred_title, gold_title):
+def strict_hit(pred_title, gold_title):
+    """严格措辞匹配：包含关系或 gold 的任意 2-gram 出现在 pred 里。"""
     p = pred_title or ''
     g = gold_title or ''
     if not p or not g:
+        return False
+    # 阶段词不同 -> 不是同一件事。2-gram 规则会把"预答辩"和"正式答辩"判成命中
+    # （"答辩"是公共子串），必须显式拦住（2026-10-21 单测发现）
+    if _stage_conflict(p, g):
         return False
     if p in g or g in p:
         return True
@@ -144,8 +149,56 @@ def keyword_hit(pred_title, gold_title):
     return False
 
 
-def match_events(gold_events, pred_events):
-    """返回 (命中数, 是否每条都命中, 是否无多报)。模糊时间条目不计入精确 time 匹配。"""
+# ===== 同义词配对（2026-10-21）=====
+# 用途：诊断失败性质，不是刷分。严格措辞会惩罚同义改写——标注"聚餐"、模型写
+# "一起吃饭"，日期时间全对却被算成"漏报+多报"。加上下面这层后可以算出一个
+# "放宽措辞口径"的数字，用来回答"剩下的错到底是没理解，还是只是换了个说法"。
+# 保守原则：只收明确等价的说法；不做上下位合并（"烧烤"不等于"聚餐"，就不并）。
+# 配对仍要求 date 相等，所以不会把不同天的事件配到一起。
+SYNONYM_GROUPS = [
+    ['聚餐', '吃饭', '一起吃', '约饭', '吃个饭'],
+    ['上课', '节课'],                       # "第一节课换教室" 也算上课
+    ['开会', '会议', '例会', '组会', '班会'],
+    ['考试', '测验'],
+    ['跑步', '慢跑'],
+]
+# 阶段词：两边都带且不同 -> 不是同一件事（预答辩 ≠ 正式答辩），禁止同义配对
+STAGE_WORDS = ['预答辩', '正式答辩']
+
+
+def _stage_conflict(a, b):
+    sa = [w for w in STAGE_WORDS if w in (a or '')]
+    sb = [w for w in STAGE_WORDS if w in (b or '')]
+    return bool(sa and sb and sa != sb)
+
+
+def _concepts(title):
+    t = title or ''
+    return {i for i, words in enumerate(SYNONYM_GROUPS) if any(w in t for w in words)}
+
+
+def concept_hit(pred_title, gold_title):
+    p = pred_title or ''
+    g = gold_title or ''
+    if not p or not g:
+        return False
+    if not (_concepts(p) & _concepts(g)):
+        return False
+    gp = [w for w in STAGE_WORDS if w in g]
+    pp = [w for w in STAGE_WORDS if w in p]
+    if gp and pp and gp != pp:
+        return False
+    return True
+
+
+def title_hit(pred_title, gold_title):
+    """配对判定：严格措辞命中，或同义词命中。"""
+    return strict_hit(pred_title, gold_title) or concept_hit(pred_title, gold_title)
+
+
+def match_events(gold_events, pred_events, hit=None):
+    """返回 (命中数, 每条 pred 是否被用掉)。默认用严格措辞配对。"""
+    hit = hit or strict_hit
     used = [False] * len(pred_events)
     tp = 0
     for ge in gold_events:
@@ -153,13 +206,35 @@ def match_events(gold_events, pred_events):
         for pi, pe in enumerate(pred_events):
             if used[pi]:
                 continue
-            if pe.get('date') == ge.get('date') and keyword_hit(pe.get('title'), ge.get('title')):
+            if pe.get('date') == ge.get('date') and hit(pe.get('title'), ge.get('title')):
                 hi = pi
                 break
         if hi >= 0:
             used[hi] = True
             tp += 1
     return tp, used
+
+
+def all_correct_msg(gold_events, pred_events, hit):
+    """整条消息是否全对：所有标注事件配上 + date/time(标注有才算)/location 全对 + 无多报。"""
+    tp, used = match_events(gold_events, pred_events, hit)
+    if tp != len(gold_events) or len(pred_events) != len(gold_events):
+        return False
+    for ge in gold_events:
+        pe = None
+        for pi, p in enumerate(pred_events):
+            if used[pi] and p.get('date') == ge.get('date') and hit(p.get('title'), ge.get('title')):
+                pe = p
+                break
+        if pe is None:
+            return False
+        if ge.get('start_time') is not None and pe.get('start_time') != ge.get('start_time'):
+            return False
+        gl = (ge.get('location') or '')
+        pl = (pe.get('location') or '')
+        if not (gl == pl or gl in pl or pl in gl):
+            return False
+    return True
 
 
 def evaluate(items, predictions):
@@ -170,6 +245,8 @@ def evaluate(items, predictions):
     loc_ok = loc_total = 0
     fab_time = fab_loc = 0   # 编造：gold 该字段为空，模型却填了值
     end_ok = end_total = 0
+    end_ok_wide = 0           # 放宽措辞（同义词）口径下的通过数，仅作诊断
+    wording_ids = []          # 仅因标题措辞不同才被判失败的消息
     badcases = []
 
     for item, parsed in zip(items, predictions):
@@ -202,7 +279,7 @@ def evaluate(items, predictions):
             for pi, pe in enumerate(pred_events):
                 if used[pi]:
                     continue
-                if pe.get('date') == ge.get('date') and keyword_hit(pe.get('title'), ge.get('title')):
+                if pe.get('date') == ge.get('date') and strict_hit(pe.get('title'), ge.get('title')):
                     hi = pi
                     break
             if hi >= 0:
@@ -226,34 +303,22 @@ def evaluate(items, predictions):
                 elif not gl and pl:
                     fab_loc += 1    # gold 无地点，模型却给了一个
 
-        # 端到端完全正确率：所有标注事件命中 + 每个命中 date/time(精确)/location 全对 + 无多报
-        tp2, used2 = match_events(gold_events, pred_events)
-        all_correct = (tp2 == len(gold_events))
-        if all_correct:
-            for ge in gold_events:
-                pe = None
-                for pi, p in enumerate(pred_events):
-                    if used2[pi] and p.get('date') == ge.get('date') and keyword_hit(p.get('title'), ge.get('title')):
-                        pe = p
-                        break
-                if pe is None:
-                    all_correct = False
-                    break
-                if pe.get('date') != ge.get('date'):
-                    all_correct = False
-                if ge.get('start_time') is not None and pe.get('start_time') != ge.get('start_time'):
-                    all_correct = False
-                gl = (ge.get('location') or '')
-                pl = (pe.get('location') or '')
-                if not (gl == pl or gl in pl or pl in gl):
-                    all_correct = False
-        if len(pred_events) != len(gold_events):
-            all_correct = False
+        # 端到端完全正确率：所有标注事件命中 + 每个命中 date/time(精确)/location 全对 + 无多报。
+        # 主指标用**严格措辞**配对（与历史可比）；另用同义词口径再判一次，
+        # 只为把"没理解"和"只是换了个说法"分开——同义词表是自己定的，不拿它刷分。
+        all_correct = all_correct_msg(gold_events, pred_events, strict_hit)
+        wording_only = False
         if all_correct:
             end_ok += 1
+            end_ok_wide += 1
         else:
+            wording_only = all_correct_msg(gold_events, pred_events, title_hit)
+            if wording_only:
+                end_ok_wide += 1
+                wording_ids.append(item['id'])   # 严格口径算失败，但日期时间全对、只是措辞不同
             badcases.append({'id': item['id'], 'category': item['category'], 'text': item['text'],
-                             'gold': item['events'], 'pred': parsed.get('events')})
+                             'gold': item['events'], 'pred': parsed.get('events'),
+                             'wording_only': wording_only})
 
     # 端到端分母只算"该有日程"的消息：E 类（闲聊）没有标注事件，无从判定"解析对不对"，
     # 也不该被算成必然失败。旧口径分母含 E、分子不含 E，把 dev 的 60/68 压成了 60/80（75.0%）。
@@ -278,6 +343,8 @@ def evaluate(items, predictions):
         'loc_acc': safe(loc_ok, loc_total), 'loc_total': loc_total,
         'fab_time': fab_time, 'fab_loc': fab_loc,
         'end_acc': safe(end_ok, end_total), 'end_ok': end_ok, 'end_total': end_total,
+        'end_acc_wide': safe(end_ok_wide, end_total), 'end_ok_wide': end_ok_wide,
+        'wording_ids': wording_ids,
         'badcases': badcases,
     }
 
@@ -322,8 +389,19 @@ def main():
     print('  location  %s%%   (达标线 >=70%%)   %s' % (m['loc_acc'], '达标' if m['loc_acc'] >= 70 else '未达标'))
     print('编造(命中事件·gold 为空而模型填值):  time=%d  location=%d' % (m['fab_time'], m['fab_loc']))
     print('整条消息全对率:     %s%%   (%d/%d，分母=该有日程的消息数)' % (m['end_acc'], m['end_ok'], m['end_total']))
+    # 括号里给"放宽措辞"的数：多出来的那些条，日期时间全对，只是标题换了说法。
+    # 主指标仍是严格口径——同义词表是我自己定的，不该拿它刷分，只该拿它诊断失败性质。
+    if m['wording_ids']:
+        print('  同义措辞放宽后:   %s%%   (%d/%d) —— 多出的 %d 条只是说法不同：%s'
+              % (m['end_acc_wide'], m['end_ok_wide'], m['end_total'],
+                 len(m['wording_ids']), ', '.join(m['wording_ids'])))
     print('-' * 50)
-    print('badcase 数量: %d' % len(m['badcases']))
+    real = len(m['badcases']) - len(m['wording_ids'])
+    if m['wording_ids']:
+        print('badcase 数量: %d（其中 %d 条属同义改写，真正解析错 %d 条）'
+              % (len(m['badcases']), len(m['wording_ids']), real))
+    else:
+        print('badcase 数量: %d' % len(m['badcases']))
     print('=' * 50)
 
     os.makedirs(REPORTS_DIR, exist_ok=True)
