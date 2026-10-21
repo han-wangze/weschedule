@@ -94,6 +94,8 @@ weschedule/
 
 ## 运行评测
 
+评测的完整说明（语料构成、提示词全文与逐条设计意图、六项指标、口径纪律、已知局限、运行史）见 **[docs/eval-method.md](docs/eval-method.md)**。
+
 ```bash
 pip install requests
 export DEEPSEEK_API_KEY=sk-xxxx          # Windows: set DEEPSEEK_API_KEY=sk-xxxx
