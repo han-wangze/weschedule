@@ -25,7 +25,6 @@
         </view>
       </view>
       <view class="del-btn" data-id="{{item._id}}" catchtap="onDelete">删除</view>
-      <view class="edit-btn" data-id="{{item._id}}" catchtap="onEdit">编辑</view>
     </view>
   </block>
 </view>

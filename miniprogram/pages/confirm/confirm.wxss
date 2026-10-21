@@ -1,11 +1,12 @@
-/* 确认页布局：顶部警示区 + 中部 swiper + 底部按钮，全部走正常文档流。
-   swiper 的高度由 JS 用窗口高度减去上、下两块实测高度算出（见 confirm.js 的 measure）。
-   ⚠️ 踩过的两个坑，别再用：
-     ① height:100vh + page{overflow:hidden}：真机上 100vh 比可视区高，底部按钮被挤出屏幕、
-        页面又禁止滚动，整页显示为空白；
-     ② 给 swiper 用 position:absolute + top/bottom 撑高：swiper 拿不到确定高度会塌成 0，
-        里面的 scroll-view 一起变 0。 */
-.confirm-page { padding-bottom: 0; }
+/* 确认页布局：顶部警示区 + 中部 swiper + 底部按钮。
+   ⚠️ 2026-10-21 真机反馈：底部按钮被 swiper 挤到可视区外，要滚动页面才看全。
+   根因：swiper 高度 = 窗口高 - top - bottom，bottom 量不到时兜底 120px 偏小
+   （实际约 150px：badcase 链接 + 双按钮 + 边距），swiper 被算高，按钮被顶出屏幕。
+   根治：底部按钮区改 fixed 常驻可视区底部（不再依赖量高算准），
+   页面加 padding-bottom 让位；量高兜底同步提高到 160px（宁矮勿高）。
+   ⚠️ 踩过的坑仍别用：height:100vh + page{overflow:hidden} 会整页白屏
+   （100vh 高于可视区且禁滚，内容被推出后滚不回来）；swiper 用绝对定位撑高会塌成 0。 */
+.confirm-page { padding-bottom: 200rpx; }
 
 .hint { text-align: center; color: #9aa0a6; font-size: 24rpx; margin: 16rpx 0; }
 
@@ -23,7 +24,15 @@
 /* 无日期的日程不会提醒（remind 直接跳过），界面上不留一个假的"30 分钟" */
 .no-remind { flex: 1; color: #b0b3b8; font-size: 24rpx; line-height: 1.4; }
 
-.bottom { background: #f5f6f8; }
+/* 底部按钮区：fixed 常驻可视区底部。按钮是这一页的终点动作，
+   不能藏在一屏之外——量高算法偶尔失手时，fixed 是最后一道保险 */
+.bottom {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: #f5f6f8;
+  /* iOS 全面屏底部横条安全区（home indicator），两行写法兼容旧基础库 */
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
 .feedback-link { text-align: center; color: #fa5151; font-size: 26rpx; margin: 12rpx 0 4rpx; text-decoration: underline; }
 .actions { display: flex; margin: 8rpx 24rpx 0; gap: 20rpx; }
 .actions button { flex: 1; }

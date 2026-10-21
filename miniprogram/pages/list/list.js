@@ -1,5 +1,7 @@
-// pages/list/list.js —— 我的日程：按日期分组 + 左滑（删除/编辑）+ 冲突标记
-// 2026-10-21：左滑露出「删除 / 编辑」两个按钮；点卡片也可进编辑。
+// pages/list/list.js —— 我的日程：按日期分组 + 左滑删除 + 点卡片编辑 + 冲突标记
+// 2026-10-21：左滑只露「删除」一个按钮。曾试过「删除/编辑」双按钮，真机反馈差：
+// 双按钮共 240rpx ≈ 小屏三分之一宽，卡片内容被挤走；且红绿并列刺眼、绿色与主按钮
+// 语义混淆。编辑改走"点卡片"（更显眼、无学习成本），左滑只留给低频破坏性操作。
 // ⚠️ 左滑位移的三个数（最大位移、吸附阈值、按钮宽度）必须同单位：
 //    触摸坐标是 px，按钮宽度写的是 rpx，早年直接拿 -120px 当 -120rpx 用，
 //    大屏上卡片滑出按钮两倍远，左边露一条空白（px/rpx 错配）。现在统一按
@@ -7,8 +9,8 @@
 const api = require('../../utils/api.js');
 const conflict = require('../../utils/conflict.js');
 
-const BTN_W_RPX = 120;        // 每个按钮宽（删除 / 编辑 各一个）
-const REVEAL_RPX = BTN_W_RPX * 2;  // 左滑到底露出的总宽度
+const BTN_W_RPX = 120;        // 删除按钮宽
+const REVEAL_RPX = BTN_W_RPX; // 左滑到底露出的总宽度
 
 Page({
   data: { groups: [], offsets: {}, pxPerRpx: 0.5 },
@@ -116,12 +118,6 @@ Page({
   onItemTap(e) {
     if (this._moved || this._vertical) return;
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: '/pages/confirm/confirm?edit_id=' + id });
-  },
-
-  onEdit(e) {
-    const id = e.currentTarget.dataset.id;
-    this.setData({ ['offsets.' + id]: 0 });
     wx.navigateTo({ url: '/pages/confirm/confirm?edit_id=' + id });
   },
 
