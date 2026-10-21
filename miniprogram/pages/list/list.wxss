@@ -13,6 +13,11 @@
   background:#fff; border-radius:16rpx; padding:24rpx;
   transition: transform 0.2s ease;
   display:flex; align-items:center;
+  /* 关键：卡片必须自己建立层叠上下文，才能盖住下面的删除按钮。
+     absolute 元素（.del-btn）默认画在 static 元素之上——不给卡片
+     position+z-index 的话，删除按钮会常驻显示在卡片上，左滑只是
+     把内容拖走（2026-10-21 真机反馈的"删除一直显现"就是这个）。 */
+  position: relative; z-index: 1;
 }
 .item-main { display:flex; flex-direction:column; }
 .item-title-row { display:flex; align-items:center; }
@@ -24,4 +29,6 @@
   background:#e54d42; color:#fff; font-size:28rpx;
   display:flex; align-items:center; justify-content:center;
   border-radius:0 16rpx 16rpx 0;
+  /* 画在卡片下面（卡片 z-index:1），只有左滑让位才露出来 */
+  z-index: 0;
 }

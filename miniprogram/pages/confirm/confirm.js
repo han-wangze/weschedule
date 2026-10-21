@@ -53,16 +53,18 @@ Page({
     });
   },
 
-  // 量出「窗口高 - 顶部警示区 - 底部按钮区」，把剩下的高度给 swiper。
+  // swiper 高度 = min(可用空间, 卡片内容自然高度 + 余量)。
+  // 关键点：内容不满一屏时**不要撑满**——撑满会让卡片与按钮之间留一大片空白，
+  // 按钮看起来"沉"在屏幕底部（2026-10-21 真机第二轮反馈）。撑到内容高度处收手，
+  // 按钮就紧贴在卡片下方。内容真的超高时才封顶为可用空间，卡片内部滚动。
   // 不用 100vh：真机上 100vh 比可视区高，配合 page{overflow:hidden} 会把整页裁成空白；
   // 也不给 swiper 用绝对定位撑高，swiper 拿不到确定高度会塌成 0。
-  // 2026-10-21：底部按钮区已改 fixed 常驻（见 confirm.wxss），量高失手也不会
-  // 再把按钮顶出屏幕；兜底值同步提高到 160px——宁矮勿高。
   measure() {
     wx.nextTick(() => {
       const q = wx.createSelectorQuery().in(this);
       q.select('.top').boundingClientRect();
       q.select('.bottom').boundingClientRect();
+      q.selectAll('.card').boundingClientRect();   // 每张卡片的自然高度
       q.exec((res) => {
         let winH = 0;
         try {
@@ -70,9 +72,24 @@ Page({
           winH = info.windowHeight || info.screenHeight || 0;
         } catch (e) {}
         const topH = (res && res[0] && res[0].height) || 0;
-        // 底部按钮区量不到时按典型高度兜底：宁可让页面多滚一点，也不能把按钮顶出屏幕
+        // 底部按钮区量不到时按典型高度兜底（badcase 链接 + 双按钮 + 边距 ≈ 160px）
         const botH = (res && res[1] && res[1].height) || 160;
-        let h = winH ? winH - topH - botH : 420;   // 取不到窗口信息时给个兜底值
+        // 多事件时按最高的一张算，避免切换卡片时高度跳来跳去
+        const cards = (res && res[2]) || [];
+        const cardH = cards.reduce((m, c) => Math.max(m, (c && c.height) || 0), 0);
+        const avail = winH ? winH - topH - botH : 420;
+        let h;
+        if (cardH > 0) {
+          // 内容不满一屏 -> 卡片高度 + 余量；超高 -> 封顶为可用空间（内部滚动）
+          h = Math.min(avail, cardH + 16);
+        } else {
+          // 首次渲染卡片可能还没布局出来，先按可用空间兜底，随后补量一次（只补一次，不循环）
+          h = avail;
+          if (!this._retried) {
+            this._retried = true;
+            setTimeout(() => this.measure(), 120);
+          }
+        }
         h = Math.max(240, Math.floor(h));
         if (Math.abs(h - (this.data.swiperH || 0)) > 2) this.setData({ swiperH: h });
       });
