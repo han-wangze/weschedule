@@ -105,7 +105,18 @@ def load_split(items, resplit):
     if resplit or not os.path.exists(SPLIT_FILE):
         return fixed_split(items)
     with open(SPLIT_FILE, encoding='utf-8') as f:
-        return json.load(f)
+        split = json.load(f)
+    # 旧 split 文件不含后来新增的钉死条目（如 heldout）。把它们补进去，
+    # 同时保留已有 dev/test 的分配，避免历史数字因加语料而漂移。
+    dirty = False
+    for i in items:
+        if i['id'] not in split and i.get('split_hint'):
+            split[i['id']] = i['split_hint']
+            dirty = True
+    if dirty:
+        with open(SPLIT_FILE, 'w', encoding='utf-8') as f:
+            json.dump(split, f, ensure_ascii=False, indent=2)
+    return split
 
 
 def strip_fence(s):
@@ -266,7 +277,7 @@ def evaluate(items, predictions):
             fp += 1
         else:
             tn += 1
-        if item['category'] == 'E':
+        if not gold_has:
             e_total += 1
             if pred_has:
                 e_fp += 1
@@ -358,7 +369,7 @@ def evaluate(items, predictions):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--prompt', default='v1.3')
-    ap.add_argument('--dataset', default='dev', choices=['dev', 'test'])
+    ap.add_argument('--dataset', default='dev', choices=['dev', 'test', 'heldout'])
     ap.add_argument('--resplit', action='store_true', help='重新生成固定切分')
     args = ap.parse_args()
 
@@ -388,7 +399,7 @@ def main():
     print('WeSchedule Eval Report    prompt=%s    dataset=%s(%d)' % (args.prompt, args.dataset, len(subset)))
     print('=' * 50)
     print('has_schedule 判定:  acc=%s  P=%s  R=%s  F1=%s' % (m['acc'], m['P'], m['R'], m['F1']))
-    print('误报率(E类判有):    %s%%   (达标线 <=5%%)   %s' % (m['miss_rate'], '达标' if m['miss_rate'] <= 5 else '未达标'))
+    print('误报率(无日程消息判有): %s%%   (达标线 <=5%%)   %s' % (m['miss_rate'], '达标' if m['miss_rate'] <= 5 else '未达标'))
     print('事件级:  P=%s  R=%s' % (m['ev_p'], m['ev_r']))
     print('字段准确率(命中事件):')
     print('  time      %s%%   (达标线 >=80%%)   %s' % (m['time_acc'], '达标' if m['time_acc'] >= 80 else '未达标'))
