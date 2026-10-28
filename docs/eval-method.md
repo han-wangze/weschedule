@@ -289,6 +289,21 @@ python eval/verify_relperiod.py                # 相对周期规则稳定性：�
 
 ---
 
+### 5.6 评测—线上口径对齐守护（A1 收尾，2026-10-29）
+
+开发卡 A1 修的是"评测说对、线上说错"的分叉：prompt 规则要求 `date=null`（模糊消息，规则 3），但旧 `validate` 要求 `date` 必须是 YYYY-MM-DD 字符串，导致模糊消息线上 `PARSE_FAILED`，而评测直接比 `None==None` 算"正确"。A1 的四处联动修复（validate 允许 null / saveEvent 存 null / list 待定分区 / remind 跳过无日期）连同 `conflict` 过滤无日期、前端 `fuzzy_time` 展示位，已在 2026-10-20 重构中落地（commit `97c54e9`）。
+
+为防止分叉复发，在 `eval/run_eval.py` 复刻了 `cloudfunctions/parse/index.js` 的 `validate()`（函数名 `validate_event`），每次运行对**全量 gold** 与**每条 prediction** 各跑一遍，并在报告里打印「A1 防分叉守护」两行：
+
+- **gold 口径守护**：全部 gold 事件必须被线上 `validate` 接受——gold 定义与线上口径一致。复刻时对**缺失字段宽松接受**（gold 标注设计上不含 `reminder_minutes` / `confidence`，缺即接受，不误报），但对已有字段（title / date / start_time / end_time / is_deadline / people）严格校验。
+- **prediction 守护**：任何 prediction 若线上会被 `validate` 拒绝（会触发 `PARSE_FAILED` 重试），评测也立即标出，避免"评测判对、线上却失败"的隐性分叉。
+
+实测（不调 API，跑全量 gold）：**130 条语料 · 152 个事件，100% 通过**；其中 **9 条 `date=null` 的模糊事件**正是 A1 分叉点，全部被接受。
+
+效果：每次跑评测都自动核对 gold 与线上口径一致性。未来若有人再把 `validate` 改回拒绝 null（或任何字段收紧），评测会立刻报出 gold 被拒，而不再是无感的静默分叉——这是开发卡 A1 末尾要求的回归守护。
+
+---
+
 ## 6. 运行与版本史
 
 | 日期 | prompt | dev | test | 说明 |

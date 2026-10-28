@@ -64,6 +64,47 @@ SYSTEM_PROMPT = '''你是一个日程信息解析器。用户会给你一段从�
 WD = ['一', '二', '三', '四', '五', '六', '日']
 
 
+# ===== A1 防分叉守护（2026-10-29）=====
+# 背景：A1 修的是"评测说对、线上说错"的分叉——prompt 规则要求 date=null（模糊消息），
+# 但旧 validate 要求 date 必须是 YYYY-MM-DD 字符串，导致模糊消息线上 PARSE_FAILED。
+# 现已把线上 validate 改为允许 null。这条守护把"线上 validate 逻辑"复刻进评测，对全量 gold
+# 与每条 prediction 跑一遍，确保：
+#   (1) 全部 gold 结构都被线上接受（gold 定义与线上口径一致，防止未来再有人改 validate
+#       把 null 拒掉而评测无感）——这是 A1 末尾要求的回归守护；
+#   (2) 任何 prediction 若线上会被 validate 拒绝（会触发 PARSE_FAILED 重试），评测也立即标出，
+#       避免"评测判对、线上却失败"的隐性分叉。
+# 设计要点：gold 标注设计上不含 reminder_minutes / confidence 字段，缺失即接受（不误报）；
+#       模型输出若含这些字段则必须类型合法（与线上一致）。
+DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+def validate_event(e):
+    """复刻 cloudfunctions/parse/index.js 的 validate()：线上对每条事件做的 schema 校验。
+    返回 (ok, reason)。"""
+    if not isinstance(e.get('title'), str) or not e.get('title'):
+        return False, 'title 非字符串或空'
+    d = e.get('date')
+    if not (d is None or isinstance(d, str) and DATE_RE.match(d)):
+        return False, 'date 非 null/YYYY-MM-DD'
+    st = e.get('start_time')
+    if st is not None and not isinstance(st, str):
+        return False, 'start_time 非 null/字符串'
+    et = e.get('end_time')
+    if et is not None and not isinstance(et, str):
+        return False, 'end_time 非 null/字符串'
+    if not isinstance(e.get('is_deadline'), bool):
+        return False, 'is_deadline 非布尔'
+    if not isinstance(e.get('people'), list):
+        return False, 'people 非数组'
+    rm = e.get('reminder_minutes')
+    if rm is not None and not isinstance(rm, (int, float)):
+        return False, 'reminder_minutes 非数字'
+    cf = e.get('confidence')
+    if cf is not None and not isinstance(cf, (int, float)):
+        return False, 'confidence 非数字'
+    return True, ''
+
+
 def weekday_cn(date_str):
     d = datetime.date.fromisoformat(date_str)
     return WD[d.weekday()]
@@ -396,6 +437,30 @@ def main():
 
     m = evaluate(subset, predictions)
 
+    # ---- A1 防分叉守护：gold 与 prediction 是否都通过线上 validate ----
+    # 用全量语料检查 gold（不限 --dataset，因为 gold 定义是全局的）；
+    # prediction 只检查当前 subset（需模型输出）。
+    gold_total = gold_ok = 0
+    gold_rejects = []
+    for it in items:
+        for ge in it.get('events') or []:
+            gold_total += 1
+            ok, reason = validate_event(ge)
+            if ok:
+                gold_ok += 1
+            else:
+                gold_rejects.append((it['id'], reason, ge.get('title')))
+    pred_total = pred_ok = 0
+    pred_rejects = []
+    for it, parsed in zip(subset, predictions):
+        for pe in parsed.get('events') or []:
+            pred_total += 1
+            ok, reason = validate_event(pe)
+            if ok:
+                pred_ok += 1
+            else:
+                pred_rejects.append((it['id'], reason, pe.get('title')))
+
     print('=' * 50)
     print('WeSchedule Eval Report    prompt=%s    dataset=%s(%d)' % (args.prompt, args.dataset, len(subset)))
     print('=' * 50)
@@ -421,6 +486,24 @@ def main():
     else:
         print('badcase 数量: %d' % len(m['badcases']))
     print('=' * 50)
+
+    # A1 防分叉守护结论：gold 必须与线上口径一致；prediction 不应有"线上会被拒"的隐性分叉
+    print()
+    print('【A1 防分叉守护】线上 validate 一致性:')
+    print('  gold 事件:  %s%%  (%d/%d)  %s' % (
+        safe(gold_ok, gold_total), gold_ok, gold_total,
+        '✅ 与线上口径一致' if gold_total and gold_ok == gold_total else '⚠ 存在分叉风险'))
+    print('  pred 事件:  %s%%  (%d/%d)  %s' % (
+        safe(pred_ok, pred_total), pred_ok, pred_total,
+        '✅' if pred_total and pred_ok == pred_total else '⚠ 有 prediction 线上会被拒（隐性分叉）'))
+    if gold_rejects:
+        print('  ⚠ gold 被拒（必须修 gold 或 validate）:')
+        for rid, reason, title in gold_rejects:
+            print('     %s  [%s] %s' % (rid, reason, title))
+    if pred_rejects:
+        print('  ⚠ pred 被拒（评测判对但线上会 PARSE_FAILED）:')
+        for rid, reason, title in pred_rejects:
+            print('     %s  [%s] %s' % (rid, reason, title))
 
     os.makedirs(REPORTS_DIR, exist_ok=True)
     out = os.path.join(REPORTS_DIR, 'badcase_%s_%s.jsonl' % (args.prompt, args.dataset))
