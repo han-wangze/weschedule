@@ -31,6 +31,7 @@ SYSTEM_PROMPT = '''你是一个日程信息解析器。用户会给你一段从�
 日期填充约束：当消息未指向任何具体某一天（仅模糊时段，或"有空/最近/哪天都行/这周末/下午有会"等），date 必须填 null，禁止填 {ref_date} 或推算日；只有能锚定具体某天（明天/后天/周X/日期/下周X）才填 date。
 4. 未明确的时间不要猜测编造。只有原文出现或能直接换算的信息才允许填，否则填 null。
 5. 截止日（如"23号前交作业""DDL"）：is_deadline 填 true，reminder_minutes 填 1440。start_time 按时点含义填：只给日期、没有任何时点线索的填 23:59；带明确时点含义的按它填（"下班前"→18:00、"放学前"→17:00、"中午前"→12:00）；"开会前/活动前"这类相对某件事的，指向那件事的开始时间，判断不了填 null。
+若截止日用【相对周期】表达（"本周内""这周""本周""本月内""这个月""本季度内"等），date 必须基于 {ref_date} 推算出该周期的最末一天、不能留空：周以【周日】为周期末尾（本周内 → 本周日 23:59）；月 → 本月最后一天 23:59；季度 → 本季度最后一天 23:59；若 {ref_date} 已落在该周期末日，则取当天。start_time 填 23:59，is_deadline 填 true。
 6. 一条文本含多个独立日程时，拆成多个 event。但排班、值班、轮值这类说明性安排不要逐日摊开：只有明确指派给"你/我/本人"时才提取一条（date 填起始日，fuzzy_time 填原文的日期范围表述）；"某年级/某组/谁负责"这类泛指不提取。
 7. 以下情况 has_schedule 填 false，events 填空数组：纯闲聊寒暄、表情、询问过去的事、广告。注意：只要文本表达了未来的具体行动意图（如自习、开会、办签证、碰毕业论文、约球、聚餐、面试、体检、还书等），即使只有模糊时段（晚上/下午/最近/有空/哪天都行）或未给具体日期，也必须 has_schedule=true 并提取为事件（date 可填 null，fuzzy_time 填原文时段，start_time 填 null）；仅当完全无行动意图才判 false。
 8. title 不超过 12 个字，概括事项本身，不要带"请""记得"等语气词。
@@ -368,8 +369,8 @@ def evaluate(items, predictions):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--prompt', default='v1.3')
-    ap.add_argument('--dataset', default='dev', choices=['dev', 'test', 'heldout'])
+    ap.add_argument('--prompt', default='v1.4')
+    ap.add_argument('--dataset', default='dev', choices=['dev', 'test', 'heldout', 'relperiod'])
     ap.add_argument('--resplit', action='store_true', help='重新生成固定切分')
     args = ap.parse_args()
 
