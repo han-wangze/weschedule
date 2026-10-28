@@ -6,7 +6,7 @@ const https = require('https');
 
 // 密钥只存云函数环境变量（控制台配置），不进前端代码
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const PROMPT_VERSION = 'v1.2';
+const PROMPT_VERSION = 'v1.4';
 const MODEL = 'deepseek-chat';
 
 const SYSTEM_PROMPT = `你是一个日程信息解析器。用户会给你一段从微信群聊复制的文本，你要判断其中是否包含未来的日程安排，并提取为结构化 JSON。
