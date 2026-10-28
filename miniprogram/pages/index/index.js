@@ -10,49 +10,44 @@ Page({
     loading: false,
     recent: [],
     showPrivacy: false,  // 隐私授权弹窗显隐
+    parseBtnText: '粘贴并解析', // 主按钮文案（B2：单入口自适应）
   },
 
   // 上一次读到的剪贴板内容（不进 data，避免触发渲染）；用于判断"用户是不是复制了新消息"
   _lastClip: '',
 
   onShow() {
-    // 进入页面即尝试读取剪贴板（受隐私保护接口）。
-    // 已授权 → 直接读出；未授权 → 微信自动触发 onNeedPrivacyAuthorization 弹一次授权，
-    // 用户同意后自动重试读取；拒绝则走 fail 静默处理。
-    // 不再手动调 wx.getPrivacySetting 判断 needAuthorization——该开关在授权状态异常时
-    // 会持续返回 true，导致永久静默跳过、剪贴板永不读取（表现即"功能没运行"）。
-    this.doReadClipboard();
+    // B1：进入页面不再主动读剪贴板（避免一进门就弹隐私授权）。
+    // 剪贴板读取改为「用户点击主按钮」时触发，符合"用户主动触发"的合规要求。
     this.loadRecent();
+    this.syncBtn();
   },
 
-  // 注：上一版在读取前用 wx.getPrivacySetting 查 needAuthorization 做硬开关，
-  // 一旦未授权/授权被清除就永久跳过，已移除。由微信统一处理授权与重试。
-
-  // 用户点「粘贴」：把剪贴板内容填进输入框。
-  // 已授权 → 直接读；未授权 → 先触发授权（用户主动点击产生，符合平台要求），同意后再读。
-  onPaste() {
-    const read = () => {
-      wx.getClipboardData({
-        success: (res) => {
-          const text = (res.data || '').trim();
-          if (!text) {
-            wx.showToast({ title: '剪贴板是空的', icon: 'none' });
-            return;
-          }
-          this._lastClip = text;
-          this.setData({ inputText: text, clipboardText: text, hasClipboard: false });
-        },
-        fail: () => wx.showToast({ title: '读取失败，请长按输入框粘贴', icon: 'none' }),
-      });
-    };
-    if (!wx.requirePrivacyAuthorize) {
-      read();
-      return;
-    }
-    wx.requirePrivacyAuthorize({
-      success: read,
-      fail: () => wx.showToast({ title: '需要同意隐私协议才能读取剪贴板', icon: 'none' }),
+  // 读取剪贴板文本（Promise 化）。未授权时先走隐私授权（用户主动触发，符合平台要求），
+  // 同意后再读；失败或拒绝返回 ''。供「粘贴并解析」按钮在用户点击时调用。
+  readClipboardText() {
+    return new Promise((resolve) => {
+      const read = () => {
+        wx.getClipboardData({
+          success: (res) => {
+            const text = (res.data || '').trim();
+            this._lastClip = text;
+            resolve(text);
+          },
+          fail: () => resolve(''),
+        });
+      };
+      if (!wx.requirePrivacyAuthorize) { read(); return; }
+      wx.requirePrivacyAuthorize({ success: read, fail: () => resolve('') });
     });
+  },
+
+  // 主按钮文案随可用文本自适应（B2：单入口，文案区分来源）
+  syncBtn() {
+    const t = (this.data.inputText || '').trim();
+    const c = (this.data.clipboardText || '').trim();
+    const label = t ? '解析日程' : (c ? '解析剪贴板里的消息' : '粘贴并解析');
+    if (this.data.parseBtnText !== label) this.setData({ parseBtnText: label });
   },
 
   // ===== 隐私授权弹窗（由 app.js 的 onNeedPrivacyAuthorization 触发显示）=====
@@ -145,18 +140,25 @@ Page({
     });
   },
 
-  onInput(e) { this.setData({ inputText: e.detail.value }); },
+  onInput(e) { this.setData({ inputText: e.detail.value }); this.syncBtn(); },
 
-  onClearInput() { this.setData({ inputText: '' }); },
+  onClearInput() { this.setData({ inputText: '' }); this.syncBtn(); },
 
   async onParse() {
-    // 优先用输入框；为空则回退到剪贴板全文
-    const text = (this.data.inputText || '').trim() || this.data.clipboardText;
+    if (this.data.loading) return;
+    // 优先用输入框；为空则回退到剪贴板（用户点击触发，符合隐私合规）
+    let text = (this.data.inputText || '').trim();
     if (!text) {
-      wx.showToast({ title: '请先复制或粘贴内容', icon: 'none' });
+      text = await this.readClipboardText();
+      if (text) {
+        this.setData({ inputText: text, clipboardText: text, hasClipboard: false });
+        this.syncBtn();
+      }
+    }
+    if (!text) {
+      wx.showToast({ title: '请先复制群消息，或在下方粘贴', icon: 'none' });
       return;
     }
-    if (this.data.loading) return;
     this.setData({ loading: true });
     try {
       api.logEvent('parse_request', { text_len: text.length });
@@ -188,6 +190,7 @@ Page({
       const payload = Object.assign({}, res, { raw_text: text });
       // 解析成功后清空输入框，避免下次进来还残留这次的文本
       this.setData({ inputText: '' });
+      this.syncBtn();
       wx.navigateTo({ url: '/pages/confirm/confirm?payload=' + encodeURIComponent(JSON.stringify(payload)) });
     } catch (err) {
       api.logEvent('parse_result', { success: false, error_code: 'NETWORK' });
