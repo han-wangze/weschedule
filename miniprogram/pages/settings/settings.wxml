@@ -1,10 +1,22 @@
 <view class="settings-page">
-  <view class="card profile">
-    <view class="avatar"></view>
-    <view class="profile-text">
-      <text class="nick">WeSchedule 用户</text>
-      <text class="sub">复制群消息，轻松管理日程</text>
+  <!-- P1 ①：用「本周概览」替代原空头像占位卡，把日程治理价值前置到常驻页 -->
+  <view class="card overview {{canTap ? 'tappable' : ''}}" bindtap="onOverviewTap">
+    <view class="ov-title">本周概览</view>
+    <view class="ov-stats">
+      <view class="ov-stat">
+        <text class="ov-num">{{weekCount}}</text>
+        <text class="ov-label">本周日程</text>
+      </view>
+      <view class="ov-stat">
+        <text class="ov-num {{ddlSoon ? 'warn' : ''}}">{{ddlSoon}}</text>
+        <text class="ov-label">临近截止</text>
+      </view>
+      <view class="ov-stat">
+        <text class="ov-num {{conflictCount ? 'warn' : ''}}">{{conflictCount}}</text>
+        <text class="ov-label">时间冲突</text>
+      </view>
     </view>
+    <view class="ov-tip {{conflictCount ? 'alert' : ''}}">{{overviewTip}}</view>
   </view>
 
   <view class="group">

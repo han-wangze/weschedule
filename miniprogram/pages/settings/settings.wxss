@@ -1,11 +1,18 @@
 .settings-page { padding-bottom: 40rpx; }
-.profile { display:flex; align-items:center; }
-.avatar { width:96rpx; height:96rpx; border-radius:50%; background:#07c160; flex-shrink:0; }
-.profile-text { margin-left:24rpx; display:flex; flex-direction:column; }
-.nick { font-size:32rpx; font-weight:600; }
-.sub { font-size:24rpx; color:#9aa0a6; margin-top:6rpx; }
-.group { margin:20rpx 24rpx; background:#fff; border-radius:16rpx; overflow:hidden; }
-.cell { display:flex; justify-content:space-between; align-items:center; padding:28rpx 24rpx; border-bottom:1rpx solid #f0f2f5; font-size:30rpx; }
-.cell:last-child { border-bottom:none; }
-.arrow { color:#c8c9cc; }
-.sub { color:#9aa0a6; font-size:28rpx; }
+.group { margin: 20rpx 24rpx; background: #fff; border-radius: 16rpx; overflow: hidden; }
+.cell { display: flex; justify-content: space-between; align-items: center; padding: 28rpx 24rpx; border-bottom: 1rpx solid #f0f2f5; font-size: 30rpx; }
+.cell:last-child { border-bottom: none; }
+.arrow { color: #c8c9cc; }
+.sub { color: #9aa0a6; font-size: 28rpx; }
+
+/* 本周概览卡片（P1 ①：替代原空头像占位卡） */
+.overview { padding: 28rpx 24rpx; }
+.overview.tappable:active { background: #f2f7f4; }
+.ov-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
+.ov-stats { display: flex; }
+.ov-stat { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.ov-num { font-size: 48rpx; font-weight: 700; color: #07c160; line-height: 1.2; }
+.ov-num.warn { color: #fa5151; }
+.ov-label { font-size: 24rpx; color: #9aa0a6; margin-top: 8rpx; }
+.ov-tip { font-size: 26rpx; color: #6b7280; margin-top: 20rpx; }
+.ov-tip.alert { color: #fa5151; }
