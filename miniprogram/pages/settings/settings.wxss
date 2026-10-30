@@ -5,14 +5,20 @@
 .arrow { color: #c8c9cc; }
 .sub { color: #9aa0a6; font-size: 28rpx; }
 
-/* 本周概览卡片（P1 ①：替代原空头像占位卡） */
-.overview { padding: 28rpx 24rpx; }
-.overview.tappable:active { background: #f2f7f4; }
-.ov-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
+/* 本周概览卡片（P1 ①：替代原空头像占位卡）
+   用淡绿底与下方白色设置分组区分开，强化「这是一张功能卡」的层级感 */
+.overview { background: #f3fbf6; padding: 24rpx 28rpx; }
+.overview.tappable:active { background: #e9f6ef; }
+
+.ov-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ov-head-title { font-size: 34rpx; font-weight: 700; color: #1f1f1f; }
+.ov-head-range { font-size: 24rpx; color: #9aa0a6; }
+.ov-divider { height: 1rpx; background: #d9ecdf; margin: 22rpx 0 24rpx; }
+
 .ov-stats { display: flex; }
 .ov-stat { flex: 1; display: flex; flex-direction: column; align-items: center; }
-.ov-num { font-size: 48rpx; font-weight: 700; color: #07c160; line-height: 1.2; }
+.ov-num { font-size: 56rpx; font-weight: 700; color: #07c160; line-height: 1; }
 .ov-num.warn { color: #fa5151; }
-.ov-label { font-size: 24rpx; color: #9aa0a6; margin-top: 8rpx; }
-.ov-tip { font-size: 26rpx; color: #6b7280; margin-top: 20rpx; }
-.ov-tip.alert { color: #fa5151; }
+.ov-label { font-size: 22rpx; color: #9aa0a6; margin-top: 12rpx; }
+.ov-tip { font-size: 26rpx; color: #6b7280; margin-top: 24rpx; }
+.ov-tip.alert { color: #fa5151; font-weight: 500; }

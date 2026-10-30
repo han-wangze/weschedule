@@ -1,7 +1,11 @@
 <view class="settings-page">
   <!-- P1 ①：用「本周概览」替代原空头像占位卡，把日程治理价值前置到常驻页 -->
   <view class="card overview {{canTap ? 'tappable' : ''}}" bindtap="onOverviewTap">
-    <view class="ov-title">本周概览</view>
+    <view class="ov-head">
+      <view class="ov-head-title">本周概览</view>
+      <view class="ov-head-range">{{weekRange}}</view>
+    </view>
+    <view class="ov-divider"></view>
     <view class="ov-stats">
       <view class="ov-stat">
         <text class="ov-num">{{weekCount}}</text>

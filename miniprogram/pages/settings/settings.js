@@ -10,6 +10,7 @@ function fmtDate(d) {
 Page({
   data: {
     version: '1.0.0',
+    weekRange: '',    // 本周日期范围，如 "10/26 - 11/1"
     weekCount: 0,     // 本周（周一~周日）日程数
     ddlSoon: 0,       // 未来 3 天内（含今天）的截止数
     conflictCount: 0,  // 本周事件里的时间冲突数
@@ -41,6 +42,8 @@ Page({
     const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
     const start = fmtDate(monday);
     const end = fmtDate(sunday);
+    const weekRange = (monday.getMonth() + 1) + '/' + monday.getDate()
+      + ' - ' + (sunday.getMonth() + 1) + '/' + sunday.getDate();
 
     // 临近 DDL：未来 3 天（含今天）
     const soon = new Date(today); soon.setDate(today.getDate() + 3);
@@ -68,7 +71,7 @@ Page({
       tip = '本周暂无日程';
     }
 
-    this.setData({ weekCount, ddlSoon, conflictCount, overviewTip: tip, canTap });
+    this.setData({ weekRange, weekCount, ddlSoon, conflictCount, overviewTip: tip, canTap });
   },
 
   onOverviewTap() {
