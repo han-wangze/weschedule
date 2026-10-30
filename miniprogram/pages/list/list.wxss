@@ -43,3 +43,5 @@
   /* 画在卡片下面（卡片 z-index:1），只有左滑让位才露出来 */
   z-index: 0;
 }
+/* 上限截断提示：日程超上限时必须说出来，否则等于静默丢日程 */
+.trunc-tip { text-align:center; color:#b0b3b8; font-size:22rpx; margin:28rpx 24rpx 0; }

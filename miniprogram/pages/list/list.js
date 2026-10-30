@@ -14,7 +14,7 @@ const REVEAL_RPX = BTN_W_RPX; // 左滑到底露出的总宽度
 const HINT_KEY = 'ws_list_hint_done'; // 操作提示是否已看过（只提示一次）
 
 Page({
-  data: { groups: [], offsets: {}, pxPerRpx: 0.5, showHint: false },
+  data: { groups: [], offsets: {}, pxPerRpx: 0.5, showHint: false, truncated: false },
 
   onLoad() {
     try {
@@ -40,6 +40,8 @@ Page({
     try {
       const res = await api.listEvents();
       const events = res.events || [];
+      // 上限截断：让"看不到的日程"不再是静默的（云函数只在未来日程被截断时置 true）
+      this.setData({ truncated: !!res.truncated });
       // 标记冲突事项（软/硬都标，列表页只做视觉提示，详情在确认页/编辑时处理）
       const conflictIds = new Set();
       conflict.detectConflicts(events).forEach((c) => {

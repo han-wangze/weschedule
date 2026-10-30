@@ -30,4 +30,6 @@
       <view class="del-btn" data-id="{{item._id}}" catchtap="onDelete">删除</view>
     </view>
   </block>
+  <!-- 上限截断提示：让"看不到的日程"不再是静默的（云函数只在未来日程被截断时置 true） -->
+  <view wx:if="{{truncated}}" class="trunc-tip">日程数量超出显示上限，部分日程未列出</view>
 </view>
