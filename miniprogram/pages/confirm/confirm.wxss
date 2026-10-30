@@ -22,6 +22,12 @@
 .picker-value { flex: 1; font-size: 30rpx; color: #333; padding: 6rpx 0; }
 .switch-row { justify-content: space-between; }
 .fuzzy { flex: 1; color: #b8860b; font-size: 28rpx; }
+/* ③ 密度：日期/开始/结束合并到一行，pickers 以紧凑小药丸并排 */
+.row-dt .dt { flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 10rpx; }
+.dt-cell { font-size: 28rpx; color: #333; padding: 8rpx 14rpx; background: #f5f6f8; border-radius: 8rpx; }
+.dt-sep { color: #9aa0a6; margin: 0 2rpx; }
+/* ③ 密度：「更多选项」折叠开关，默认收起次要字段 */
+.more-toggle { text-align: center; color: #07c160; font-size: 28rpx; padding: 20rpx 0 6rpx; }
 /* 无日期的日程不会提醒（remind 直接跳过），界面上不留一个假的"30 分钟" */
 .no-remind { flex: 1; color: #b0b3b8; font-size: 24rpx; line-height: 1.4; }
 

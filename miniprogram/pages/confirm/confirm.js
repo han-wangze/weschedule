@@ -23,6 +23,7 @@ Page({
     currentWarn: null,     // { level:'hard'|'soft'|'info', text, partners:[...] }
     suggestions: [],       // 硬冲突时的规则法空闲槽 chip
     swiperH: 0,            // 表单区高度（px），由 measure() 实测得出
+    showMore: false,       // ③ 密度：地点/参与人/提醒等次要字段默认收进「更多」
   },
 
   onLoad(options) {
@@ -213,6 +214,13 @@ Page({
     const i = this.data.index;
     this.setData({ ['events[' + i + '].is_deadline']: e.detail.value });
     this.computeConflicts();
+  },
+
+  // ③ 密度：「更多选项」展开/收起。展开后卡片变高，swiper 高度需跟随重测
+  toggleMore() {
+    const showMore = !this.data.showMore;
+    this.setData({ showMore });
+    this.measure();
   },
 
   onBack() { wx.navigateBack(); },

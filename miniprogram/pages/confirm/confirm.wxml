@@ -22,14 +22,27 @@
         <scroll-view class="form-scroll" scroll-y enhanced show-scrollbar="{{false}}">
           <view class="card">
             <view class="row"><text class="label">标题</text><input class="field" value="{{item.title}}" data-field="title" bindinput="editField" placeholder="事项标题" /></view>
-            <view class="row"><text class="label">日期</text><picker class="field" mode="date" value="{{item.date}}" data-field="date" bindchange="editField"><view class="picker-value">{{item.date || '选择日期'}}</view></picker></view>
-            <view class="row"><text class="label">开始</text><picker class="field" mode="time" value="{{item.start_time}}" data-field="start_time" bindchange="editField"><view class="picker-value">{{item.start_time || '选择时间'}}</view></picker></view>
-            <view class="row"><text class="label">结束</text><picker class="field" mode="time" value="{{item.end_time}}" data-field="end_time" bindchange="editField"><view class="picker-value">{{item.end_time || '选择时间'}}</view></picker></view>
-            <view class="row"><text class="label">地点</text><input class="field" value="{{item.location}}" data-field="location" bindinput="editField" placeholder="地点" /></view>
-            <view class="row"><text class="label">参与人</text><input class="field" value="{{item.peopleText}}" bindinput="editPeople" placeholder="逗号分隔" /></view>
-            <view class="row"><text class="label">提前提醒(分)</text><input wx:if="{{item.date}}" class="field" type="number" value="{{item.reminder_minutes}}" data-field="reminder_minutes" bindinput="editField" placeholder="30" /><text wx:else class="no-remind">待定日程暂不提醒，补上日期后生效</text></view>
-            <view class="row switch-row"><text class="label">是否截止日</text><switch checked="{{item.is_deadline}}" bindchange="toggleDeadline" color="#07c160" /></view>
-            <view class="row" wx:if="{{item.fuzzy_time}}"><text class="label">模糊时间</text><text class="fuzzy">{{item.fuzzy_time}}</text></view>
+
+            <!-- ③ 密度：日期/开始/结束合并成一行，小屏一屏装下 -->
+            <view class="row row-dt">
+              <text class="label">日期 / 时间</text>
+              <view class="dt">
+                <picker mode="date" value="{{item.date}}" data-field="date" bindchange="editField"><view class="dt-cell">{{item.date || '日期'}}</view></picker>
+                <picker mode="time" value="{{item.start_time}}" data-field="start_time" bindchange="editField"><view class="dt-cell">{{item.start_time || '开始'}}</view></picker>
+                <block wx:if="{{item.start_time || item.end_time}}"><text class="dt-sep">–</text><picker mode="time" value="{{item.end_time}}" data-field="end_time" bindchange="editField"><view class="dt-cell">{{item.end_time || '结束'}}</view></picker></block>
+              </view>
+            </view>
+
+            <!-- ③ 密度：地点/参与人/提醒/截止日/模糊时间收进「更多」，默认收起 -->
+            <view wx:if="{{showMore}}">
+              <view class="row"><text class="label">地点</text><input class="field" value="{{item.location}}" data-field="location" bindinput="editField" placeholder="地点" /></view>
+              <view class="row"><text class="label">参与人</text><input class="field" value="{{item.peopleText}}" bindinput="editPeople" placeholder="逗号分隔" /></view>
+              <view class="row"><text class="label">提前提醒(分)</text><input wx:if="{{item.date}}" class="field" type="number" value="{{item.reminder_minutes}}" data-field="reminder_minutes" bindinput="editField" placeholder="30" /><text wx:else class="no-remind">待定日程暂不提醒，补上日期后生效</text></view>
+              <view class="row switch-row"><text class="label">是否截止日</text><switch checked="{{item.is_deadline}}" bindchange="toggleDeadline" color="#07c160" /></view>
+              <view class="row" wx:if="{{item.fuzzy_time}}"><text class="label">模糊时间</text><text class="fuzzy">{{item.fuzzy_time}}</text></view>
+            </view>
+
+            <view class="more-toggle" bindtap="toggleMore">{{showMore ? '收起 ▴' : '更多选项 ▾'}}</view>
           </view>
           <view class="form-tail"></view>
         </scroll-view>
