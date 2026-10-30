@@ -9,14 +9,13 @@
       <text class="step-arrow">→</text>
       <view class="step"><text class="step-no">3</text><text class="step-txt">拆成日程</text></view>
     </view>
-    <text class="hero-sub">一条群公告，自动拆成多条结构化日程</text>
   </view>
 
   <view class="card">
     <view class="input-bar">
       <text wx:if="{{inputText}}" class="ib-btn" bindtap="onClearInput">清空</text>
     </view>
-    <textarea class="input" placeholder="粘贴一段群公告或聊天记录，我会拆成多条日程" value="{{inputText}}" bindinput="onInput" maxlength="2000" auto-height />
+    <textarea class="input" placeholder="粘贴群消息到这里进行解析~" value="{{inputText}}" bindinput="onInput" maxlength="2000" auto-height />
   </view>
 
   <button class="btn-primary parse-btn" loading="{{loading}}" disabled="{{loading}}" bindtap="onParse">{{parseBtnText}}</button>
