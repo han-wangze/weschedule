@@ -18,9 +18,18 @@ const saveEvent = (events) => call('saveEvent', { events });
 const updateEvent = (eventId, event) => call('updateEvent', { event_id: eventId, event });
 const feedback = (params) => call('feedback', params);
 
-// 埋点不阻塞主流程：云函数挂了就静默丢掉，不能因为统计失败打断用户操作
-const logEvent = (eventName, payload = {}) =>
-  call('logEvent', { event_name: eventName, payload }).catch(() => {});
+// 埋点不阻塞主流程：云函数挂了就静默丢掉，不能因为统计失败打断用户操作。
+// 同一事件 1 秒内只发一次：埋点是观测手段，不该因为用户狂点把集合刷爆。
+// （2026-11-03 邀请外部用户试用前加的前端侧节流；服务端另有事件名白名单与 payload 清洗）
+const _lastLogAt = {};
+const logEvent = (eventName, payload = {}) => {
+  const now = Date.now();
+  if (_lastLogAt[eventName] && now - _lastLogAt[eventName] < 1000) {
+    return Promise.resolve({ throttled: true });
+  }
+  _lastLogAt[eventName] = now;
+  return call('logEvent', { event_name: eventName, payload }).catch(() => {});
+};
 
 // 云函数 error_code → 用户可见文案。
 // 分两类：可重试（超时/网络）与不可重试（没配密钥、没看懂、无权限）——
