@@ -11,6 +11,7 @@ Page({
     recent: [],
     showPrivacy: false,  // 隐私授权弹窗显隐
     parseBtnText: '粘贴并解析', // 主按钮文案（B2：单入口自适应）
+    parseStage: '',      // B3 等待可见：'' | 'recognizing' | 'organizing' | 'slow'
   },
 
   // 上一次读到的剪贴板内容（不进 data，避免触发渲染）；用于判断"用户是不是复制了新消息"
@@ -21,6 +22,28 @@ Page({
     // 剪贴板读取改为「用户点击主按钮」时触发，符合"用户主动触发"的合规要求。
     this.loadRecent();
     this.syncBtn();
+  },
+
+  // B3：页面销毁时清掉等待文案的定时器（E-09：不清理会在已销毁的页面上 setData）
+  onUnload() {
+    if (this._stageT1) clearTimeout(this._stageT1);
+    if (this._stageT2) clearTimeout(this._stageT2);
+    this._stageT1 = null;
+    this._stageT2 = null;
+  },
+
+  // B9：分享给朋友 / 朋友圈——上线后唯一的自然传播通道，此前完全没有。
+  // 标题直接说价值，不用「快来试试」「分享得XX」这类诱导话术（诱导分享是审核红线）。
+  onShareAppMessage() {
+    return {
+      title: '把群里的日程，自动整理好',
+      path: '/pages/index/index',
+    };
+  },
+
+  // 朋友圈分享（基础库版本要求以官方文档核实）
+  onShareTimeline() {
+    return { title: '把群里的通知，一键拆成日程' };
   },
 
   // 读取剪贴板文本（Promise 化）。未授权时先走隐私授权（用户主动触发，符合平台要求），
@@ -43,7 +66,9 @@ Page({
   },
 
   // 主按钮文案随可用文本自适应（B2：单入口，文案区分来源）
+  // B3：解析中不覆盖阶段文案（正在识别/整理成日程/网络有点慢），否则会把进度提示冲掉
   syncBtn() {
+    if (this.data.loading) return;
     const t = (this.data.inputText || '').trim();
     const c = (this.data.clipboardText || '').trim();
     const label = t ? '解析日程' : (c ? '解析剪贴板里的消息' : '粘贴并解析');
@@ -159,7 +184,15 @@ Page({
       wx.showToast({ title: '请先复制群消息，或在下方粘贴', icon: 'none' });
       return;
     }
-    this.setData({ loading: true });
+    // B3 等待可见：点下去立刻换文案，4s 转「整理成日程…」，8s 提示网络慢。
+    // 缺这三段文案时，用户点完只看到一个小转圈，8 秒没反馈的第一反应是"卡了"然后退出。
+    this.setData({ loading: true, parseStage: 'recognizing', parseBtnText: '正在识别…' });
+    this._stageT1 = setTimeout(() => {
+      this.setData({ parseStage: 'organizing', parseBtnText: '整理成日程…' });
+    }, 4000);
+    this._stageT2 = setTimeout(() => {
+      this.setData({ parseStage: 'slow', parseBtnText: '网络有点慢…' });
+    }, 8000);
     try {
       api.logEvent('parse_request', { text_len: text.length });
       const res = await api.parse(text);
@@ -196,7 +229,20 @@ Page({
       api.logEvent('parse_result', { success: false, error_code: 'NETWORK' });
       wx.showToast({ title: '网络异常，请稍后重试', icon: 'none' });
     } finally {
-      this.setData({ loading: false });
+      // 无论成功失败都要清掉等待文案的定时器，否则页面已离开还会 setData
+      clearTimeout(this._stageT1);
+      clearTimeout(this._stageT2);
+      this._stageT1 = null;
+      this._stageT2 = null;
+      // 还原按钮文案。不调 syncBtn()：此刻 setData 还没落地，loading 仍是 true，
+      // 会被 syncBtn 里的 loading 守卫挡掉。
+      const t2 = (this.data.inputText || '').trim();
+      const c2 = (this.data.clipboardText || '').trim();
+      this.setData({
+        loading: false,
+        parseStage: '',
+        parseBtnText: t2 ? '解析日程' : (c2 ? '解析剪贴板里的消息' : '粘贴并解析'),
+      });
     }
   },
 

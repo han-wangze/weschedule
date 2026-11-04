@@ -144,6 +144,14 @@ Page({
 
   goHome() { wx.switchTab({ url: '/pages/index/index' }); },
 
+  // B9：日程页也允许转发，但落地页指向首页——对方打开看到自己的空列表没有意义
+  onShareAppMessage() {
+    return {
+      title: '把群里的日程，自动整理好',
+      path: '/pages/index/index',
+    };
+  },
+
   async onDelete(e) {
     const id = e.currentTarget.dataset.id;
     const ok = await new Promise((resolve) => {
