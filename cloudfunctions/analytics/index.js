@@ -30,10 +30,13 @@ const AGG_LIMIT = 1000;
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   if (!ADMIN.length) {
+    // 首次配置引导：只回传「调用者本人」的 openid（不是别人的），用于把值填进环境变量。
+    // 历史记录（2026-10-21 之前）没有 _openid 字段，从集合里翻是找不到的，所以这里直接给。
     return {
       success: false,
       error_code: 'NO_ADMIN_CONFIG',
-      hint: '请先在云函数配置里加环境变量 ADMIN_OPENID（你自己的 openid，逗号分隔可配多个）',
+      your_openid: OPENID,
+      hint: '把 your_openid 的值填进本云函数的环境变量 ADMIN_OPENID（逗号分隔可配多个），保存后重新调用',
     };
   }
   if (ADMIN.indexOf(OPENID) < 0) {
