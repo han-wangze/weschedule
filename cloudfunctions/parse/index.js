@@ -145,11 +145,10 @@ function refDate() {
   return { ref_date: now.getUTCFullYear() + '-' + pad(now.getUTCMonth() + 1) + '-' + pad(now.getUTCDate()), ref_weekday: wd };
 }
 
-function hashStr(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; }
-  return String(h);
-}
+// 2026-11-08 移除 input_hash：原实现是 32 位字符串哈希（非密码学哈希），
+// 对「明天下午三点开会」这类常见短句可被字典反查，达不到脱敏目的；
+// 且该字段只写不读、没有任何消费方。现在日志只记 input_len，
+// 不保留任何能用于匹配原文的标识。
 
 exports.main = async (event) => {
   if (!DEEPSEEK_API_KEY) {
@@ -172,7 +171,6 @@ exports.main = async (event) => {
         _openid: OPENID,          // 限流按人统计，历史日志没有这个字段（不影响）
         request_id: requestId,
         input_len: text.length,
-        input_hash: hashStr(text),
         prompt_version: PROMPT_VERSION,
         model: MODEL,
         output_json: null,
@@ -251,7 +249,6 @@ exports.main = async (event) => {
           _openid: OPENID,
           request_id: requestId,
           input_len: text.length,
-          input_hash: hashStr(text),
           prompt_version: PROMPT_VERSION,
           model: MODEL,
           created_at: start,

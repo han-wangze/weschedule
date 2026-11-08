@@ -242,7 +242,13 @@ Page({
           raw_text: this.data.rawText,
           parsed_events: this.data.events,
           note: '用户标记识别有误',
-        }).then(() => {
+        }).then((r) => {
+          // feedback 云函数有频率限制与字段白名单，必须检查返回值——
+          // 否则被限流时仍提示"已上报"，用户以为数据存进去了
+          if (!r || !r.success) {
+            wx.showToast({ title: api.errorText(r && r.error_code, '上报失败'), icon: 'none' });
+            return;
+          }
           api.logEvent('feedback_submitted', {});
           wx.showToast({ title: '已上报，感谢反馈', icon: 'success' });
         })
