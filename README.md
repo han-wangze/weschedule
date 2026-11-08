@@ -8,11 +8,9 @@
 
 在"把消息解析成一条提醒"之上，还做了冲突检测（软/硬分级）、截止日识别与预备提醒，处理的是"这几天排不排得下"。
 
-<p align="center">
-  <img src="https://han-wangze.github.io/hanwangze/img/shot-1.png" width="188" alt="首页：粘贴群消息并解析">
-  <img src="https://han-wangze.github.io/hanwangze/img/shot-2.png" width="188" alt="确认页：逐条编辑解析结果">
-  <img src="https://han-wangze.github.io/hanwangze/img/shot-3.png" width="188" alt="日程列表：冲突标记与三区分组">
-</p>
+产品截图与演示视频见[作品集展示页](https://han-wangze.github.io/hanwangze/weschedule.html)。
+
+> 该页截图摄于 2026-09。10 月改版后界面已变化：首页改为「复制群消息 → 一键粘贴 → 拆成日程」三格示意 + 单一主按钮，进门不再自动读剪贴板（改为用户点击后读取）；确认页把日期/时间合并为一行、次要字段收进「更多」。本文档暂未附新截图，以实际运行效果为准。
 
 ## 一、产品背景
 
